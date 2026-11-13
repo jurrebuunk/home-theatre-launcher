@@ -152,6 +152,31 @@
         wait_state("launcher")
         assert not unit_active("htl-app-term.service")
 
+    def overlay_open():
+        out = user("busctl --user get-property nl.jurrebuunk.HomeTheatre /nl/jurrebuunk/HomeTheatre "
+                   "nl.jurrebuunk.HomeTheatre1 OverlayOpen")
+        return out.strip() == "b true"
+
+    with subtest("in-app menu only over a running app, which keeps running"):
+        call("ToggleOverlay")
+        assert not overlay_open(), "menu must not open on the launcher"
+        call("Launch", "s", "term")
+        wait_state("running")
+        call("ToggleOverlay")
+        assert overlay_open()
+        machine.sleep(1)
+        machine.screenshot("overlay")
+        assert state() == "running"
+        assert unit_active("htl-app-term.service")
+        call("ToggleOverlay")
+        assert not overlay_open()
+        assert unit_active("htl-app-term.service")
+        # leaving the app closes the menu
+        call("ToggleOverlay")
+        call("Home")
+        wait_state("launcher")
+        assert not overlay_open()
+
     machine.screenshot("final")
   '';
 }

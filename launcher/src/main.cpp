@@ -11,6 +11,7 @@
 #include "status/Clock.h"
 #include "status/NetworkStatus.h"
 #include "ui/IconProvider.h"
+#include "ui/OverlayState.h"
 #include "ui/WindowController.h"
 #include "wayland/ToplevelWatcher.h"
 
@@ -61,7 +62,8 @@ int main(int argc, char *argv[])
     QCommandLineOption shotOpt(QStringLiteral("screenshot"),
                                QStringLiteral("Render a view (home, starting, closing, error-start, error-stop, bluetooth, "
                                               "pairing, bt-no-adapter, network-wifi, network-password, "
-                                              "network-ethernet, idle, idle-image) to <file> and exit. "
+                                              "network-ethernet, idle, idle-image, overlay, overlay-bluetooth, "
+                                              "overlay-network, overlay-close) to <file> and exit. "
                                               "Implies --demo."),
                                QStringLiteral("view:file"));
     QCommandLineOption glyphsOpt(QStringLiteral("glyphs"),
@@ -113,10 +115,13 @@ int main(int argc, char *argv[])
     Clock clock(&config);
     InputRouter input(&config);
     IdleMonitor idle(&config);
-    ControlService control(&life, &networkSettings, &idle);
+    OverlayState overlay(&life, config.overlay().value("enable").toBool(), config.overlay().value("dim").toDouble());
+    ControlService control(&life, &networkSettings, &idle, &overlay);
     if (parser.isSet(glyphsOpt))
         input.setLastDevice(parser.value(glyphsOpt));
 
+    // Transparent window so a running app shows through the in-app menu.
+    QQuickWindow::setDefaultAlphaBuffer(true);
     QQmlApplicationEngine engine;
     engine.addImageProvider(QStringLiteral("icon"), new IconProvider);
     QQmlContext *ctx = engine.rootContext();
@@ -126,6 +131,7 @@ int main(int argc, char *argv[])
     ctx->setContextProperty(QStringLiteral("Net"), &network);
     ctx->setContextProperty(QStringLiteral("Nm"), &networkSettings);
     ctx->setContextProperty(QStringLiteral("Idle"), &idle);
+    ctx->setContextProperty(QStringLiteral("Overlay"), &overlay);
     ctx->setContextProperty(QStringLiteral("Clock"), &clock);
     ctx->setContextProperty(QStringLiteral("Input"), &input);
     ctx->setContextProperty(QStringLiteral("Control"), &control);
@@ -162,6 +168,11 @@ int main(int argc, char *argv[])
                 idle.setBackground({{"type", "image"}, {"image", "builtin:mountains"}, {"dim", 0.0}});
             idle.enter();
         }
+        if (view.startsWith(QLatin1String("overlay"))) {
+            window->setProperty("debugView", view);
+            life.debugShow(QStringLiteral("running"), QStringLiteral("moonlight"), {});
+            overlay.show();
+        }
         window->show();
         QTimer::singleShot(1200, &app, [window, file] {
             const QImage img = window->grabWindow();
@@ -175,7 +186,8 @@ int main(int argc, char *argv[])
         return app.exec();
     }
 
-    WindowController windowController(window, &life, &input, layerShell);
+    WindowController windowController(window, &life, &input, &overlay, layerShell);
+    QObject::connect(&input, &InputRouter::overlayRequested, &overlay, &OverlayState::toggle);
     const int selectKey = config.selectKeys().value(0, Qt::Key_Return);
     const int backKey = config.backKeys().value(0, Qt::Key_Escape);
     QObject::connect(&input, &InputRouter::navigate, &windowController,

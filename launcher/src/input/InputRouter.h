@@ -38,11 +38,18 @@ public:
     static Kind classify(bool hasGamepadButtons, bool hasLetters, bool hasRemoteKeys);
     static QString glyphsForVendor(int vendor, const QString &fallback);
     static int axisDirection(double normX, double normY, double deadzone);
+    // "BTN_SELECT+BTN_START" → {codes}; unknown names make the whole entry invalid (empty).
+    static QList<QSet<int>> parseCombos(const QStringList &entries);
+
+    // While the in-app menu is open, controllers are grabbed so the app
+    // behind it does not also react to the buttons.
+    void setGrabbed(bool grabbed);
 
 Q_SIGNALS:
     void homeRequested();
     void navigate(int action); // Direction values, or Select, Back, Delete, Menu
     void activity();           // any button, key or stick movement
+    void overlayRequested();   // the configured in-app menu button / combo
     void lastDeviceChanged();
     void navigationEnabledChanged();
 
@@ -63,6 +70,9 @@ private:
         double axisX = 0, axisY = 0;
         int hatX = 0, hatY = 0;
         QSet<int> dpad;
+        QSet<int> down;
+        bool grabbed = false;
+        bool comboArmed = false;
     };
 
     void rescan();
@@ -73,6 +83,8 @@ private:
     void updateDirection(Device &d);
     void setHeld(int dir);
     void releaseAll();
+    void applyGrab(Device &d);
+    bool overlayCombo(const QList<QSet<int>> &combos, const Device &d, int code) const;
 
     const Config *m_config;
     QString m_dir;
@@ -80,6 +92,11 @@ private:
     QHash<QString, Device *> m_devices;
     QSet<int> m_gamepadHome;
     QSet<int> m_keyboardHome;
+    QList<QSet<int>> m_overlayGamepad;
+    QList<QSet<int>> m_overlayKeyboard;
+    bool m_overlayEnabled = true;
+    bool m_grabWanted = false;
+    bool m_grabControllers = true;
     bool m_confirmSouth = true;
     double m_deadzone = 0.5;
     QString m_defaultGlyphs;

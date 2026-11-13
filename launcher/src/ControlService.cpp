@@ -3,17 +3,20 @@
 #include "idle/IdleMonitor.h"
 #include "lifecycle/LifecycleController.h"
 #include "network/NetworkSettings.h"
+#include "ui/OverlayState.h"
 
 #include <QDBusConnection>
 #include <QLoggingCategory>
 
 Q_LOGGING_CATEGORY(lcControl, "htl.control")
 
-ControlService::ControlService(LifecycleController *life, NetworkSettings *network, IdleMonitor *idle, QObject *parent)
+ControlService::ControlService(LifecycleController *life, NetworkSettings *network, IdleMonitor *idle,
+                               OverlayState *overlay, QObject *parent)
     : QObject(parent)
     , m_life(life)
     , m_network(network)
     , m_idle(idle)
+    , m_overlay(overlay)
 {
     connect(m_life, &LifecycleController::changed, this, [this] { Q_EMIT StateChanged(state()); });
 }
@@ -70,6 +73,16 @@ void ControlService::OpenNetwork()
 bool ControlService::idle() const
 {
     return m_idle->idle();
+}
+
+bool ControlService::overlayOpen() const
+{
+    return m_overlay->isOpen();
+}
+
+void ControlService::ToggleOverlay()
+{
+    m_overlay->toggle();
 }
 
 void ControlService::EnterIdle()

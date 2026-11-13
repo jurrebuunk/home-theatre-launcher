@@ -57,6 +57,7 @@ qt_add_library(htl_core STATIC
     src/status/Clock.cpp src/status/Clock.h
     src/ui/IconProvider.cpp src/ui/IconProvider.h
     src/ui/WindowController.cpp src/ui/WindowController.h
+    src/ui/OverlayState.cpp src/ui/OverlayState.h
     "${PROTO_HEADER}" "${PROTO_CODE}"
 )
 target_include_directories(htl_core PUBLIC src "${PROTO_DIR}")
@@ -112,6 +113,8 @@ qt_add_qml_module(home-theatre-launcher
         qml/IdleView.qml
         qml/Slideshow.qml
         qml/IdleVideo.qml
+        qml/OverlayView.qml
+        qml/OverlayButton.qml
 )
 
 # Icons live at :/icons, :/apps, :/backgrounds and :/glyphs.

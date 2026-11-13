@@ -124,6 +124,7 @@ let
       internet = dropNulls b.internet;
       clock = dropNulls b.clock;
       network = { inherit (b.network) scanDuration; };
+      overlay = b.overlay;
       idle = {
         inherit (b.idle) enable timeout showStatus;
         background = dropNulls {
@@ -325,6 +326,29 @@ in
           Switching an existing host to NetworkManager can change its DHCP lease.
         '';
         scanDuration = opt pos 10 "Seconds a Wi-Fi scan runs.";
+      };
+      overlay = {
+        enable = opt types.bool true ''
+          In-app menu over a running app (Resume, Bluetooth, Network, Close app).
+          The app keeps running, dimmed, behind it. Never opens on the launcher.
+        '';
+        gamepadCodes = opt (types.listOf types.str) [ "BTN_MODE" ] ''
+          Controller buttons that open/close the menu: evdev names, or combos
+          such as `"BTN_SELECT+BTN_START"`. A button that is also a Home code
+          opens the menu on a short press; holding it still returns home.
+        '';
+        keyboardCodes = opt (types.listOf types.str) [ "KEY_HOMEPAGE" ] ''
+          Keyboard / remote keys (or combos like `"KEY_LEFTCTRL+KEY_M"`) that open/close the menu.
+        '';
+        dim = mkOption {
+          type = types.addCheck types.number (x: x >= 0 && x <= 1) // { description = "number in [0, 1]"; };
+          default = 0.5;
+          description = "How much the running app is darkened behind the menu.";
+        };
+        grabControllers = opt types.bool true ''
+          While the menu is open, take controllers exclusively so the app behind
+          it does not also react to the buttons.
+        '';
       };
       idle = {
         enable = opt types.bool true "Show the idle screen (clock over a background) after `timeout`.";

@@ -54,6 +54,11 @@ InputRouter::InputRouter(const Config *config, QObject *parent)
     m_lastDevice = m_defaultGlyphs;
     m_repeatDelay = input.value("repeatDelayMs").toInt();
     m_repeatInterval = input.value("repeatIntervalMs").toInt();
+    const QVariantMap overlay = config->overlay();
+    m_overlayEnabled = overlay.value("enable").toBool();
+    m_overlayGamepad = parseCombos(overlay.value("gamepadCodes").toStringList());
+    m_overlayKeyboard = parseCombos(overlay.value("keyboardCodes").toStringList());
+    m_grabControllers = overlay.value("grabControllers").toBool();
 
     m_homeTimer.setSingleShot(true);
     m_homeTimer.setInterval(input.value("homeHoldMs").toInt());
@@ -105,6 +110,55 @@ int InputRouter::axisDirection(double x, double y, double deadzone)
     if (std::fabs(x) >= std::fabs(y))
         return x < 0 ? Left : Right;
     return y < 0 ? Up : Down;
+}
+
+QList<QSet<int>> InputRouter::parseCombos(const QStringList &entries)
+{
+    QList<QSet<int>> out;
+    for (const QString &e : entries) {
+        QSet<int> combo;
+        bool ok = true;
+        for (const QString &name : e.split(QLatin1Char('+'), Qt::SkipEmptyParts)) {
+            const int code = libevdev_event_code_from_name(EV_KEY, name.trimmed().toLatin1().constData());
+            if (code < 0) {
+                qCWarning(lcInput) << "unknown evdev key name in overlay binding" << name;
+                ok = false;
+                break;
+            }
+            combo.insert(code);
+        }
+        if (ok && !combo.isEmpty())
+            out << combo;
+    }
+    return out;
+}
+
+bool InputRouter::overlayCombo(const QList<QSet<int>> &combos, const Device &d, int code) const
+{
+    for (const QSet<int> &c : combos)
+        if (c.contains(code) && d.down.contains(c))
+            return true;
+    return false;
+}
+
+void InputRouter::setGrabbed(bool grabbed)
+{
+    grabbed = grabbed && m_grabControllers;
+    if (grabbed == m_grabWanted)
+        return;
+    m_grabWanted = grabbed;
+    for (Device *d : m_devices)
+        applyGrab(*d);
+}
+
+void InputRouter::applyGrab(Device &d)
+{
+    if (!d.dev || d.kind != Kind::Gamepad || d.grabbed == m_grabWanted)
+        return;
+    if (libevdev_grab(d.dev, m_grabWanted ? LIBEVDEV_GRAB : LIBEVDEV_UNGRAB) == 0)
+        d.grabbed = m_grabWanted;
+    else
+        qCWarning(lcInput) << "cannot" << (m_grabWanted ? "grab" : "release") << d.path;
 }
 
 void InputRouter::setLastDevice(const QString &kind)
@@ -187,6 +241,7 @@ void InputRouter::openDevice(const QString &path)
     d->glyphs = d->kind == Kind::Gamepad ? glyphsForVendor(libevdev_get_id_vendor(dev), m_defaultGlyphs)
         : d->kind == Kind::Keyboard      ? QStringLiteral("keyboard")
                                          : QStringLiteral("remote");
+    applyGrab(*d);
     d->notifier = new QSocketNotifier(fd, QSocketNotifier::Read, this);
     connect(d->notifier, &QSocketNotifier::activated, this, [this, path] { readDevice(path); });
     m_devices.insert(path, d);
@@ -248,16 +303,41 @@ void InputRouter::handleEvent(Device &d, int type, int code, int value)
         if (pressed) {
             setLastDevice(d.glyphs);
             Q_EMIT activity();
+            d.down.insert(code);
+        } else {
+            d.down.remove(code);
         }
 
+        // In-app menu: a short press of a button that also means Home (held),
+        // or immediately for any other configured button / combo.
+        const QList<QSet<int>> &overlay = d.kind == Kind::Gamepad ? m_overlayGamepad : m_overlayKeyboard;
         const QSet<int> &homeCodes = d.kind == Kind::Gamepad ? m_gamepadHome : m_keyboardHome;
         if (homeCodes.contains(code)) {
             if (pressed) {
                 m_homeHeldCode = code;
                 m_homeTimer.start();
             } else if (code == m_homeHeldCode) {
+                const bool tap = m_homeTimer.isActive();
                 m_homeHeldCode = -1;
                 m_homeTimer.stop();
+                if (tap && m_overlayEnabled && overlay.contains(QSet<int>{code}))
+                    Q_EMIT overlayRequested();
+            }
+            return;
+        }
+        // Combos fire once all their buttons are released again, so the app
+        // never keeps a "stuck" button when the controllers get grabbed.
+        if (pressed && m_overlayEnabled && overlayCombo(overlay, d, code)) {
+            d.comboArmed = true;
+            return;
+        }
+        if (!pressed && d.comboArmed) {
+            bool anyDown = false;
+            for (const QSet<int> &c : overlay)
+                anyDown = anyDown || d.down.intersects(c);
+            if (!anyDown) {
+                d.comboArmed = false;
+                Q_EMIT overlayRequested();
             }
             return;
         }

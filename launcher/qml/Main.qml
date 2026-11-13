@@ -5,12 +5,14 @@ Window {
     width: 1920
     height: 1080
     visible: false
-    color: Theme.background
+    // Transparent while the in-app menu dims a running app behind it.
+    color: overlayMode ? "transparent" : Theme.background
     title: "Home Theatre"
 
     // "" (home), "bluetooth" or "network"
     property string panel: ""
     property string debugView: ""
+    readonly property bool overlayMode: Overlay.open && Life.state === "running"
 
     onHeightChanged: Theme.screenHeight = height
     Component.onCompleted: {
@@ -30,6 +32,8 @@ Window {
         Qt.callLater(restoreFocus)
     }
     function restoreFocus() {
+        if (overlayMode)
+            return
         if (Life.state === "error")
             return // ErrorView focuses itself
         if (panel !== "")
@@ -54,7 +58,7 @@ Window {
             id: home
             anchors.fill: parent
             focus: true
-            visible: window.panel === ""
+            visible: window.panel === "" && !window.overlayMode
             onOpenBluetooth: window.openBluetooth()
             onOpenNetwork: window.openNetwork()
         }
@@ -63,6 +67,7 @@ Window {
             id: panelLoader
             anchors.fill: parent
             active: window.panel !== ""
+            visible: !window.overlayMode
             sourceComponent: window.panel === "bluetooth" ? btComponent : netComponent
             onLoaded: Qt.callLater(() => { item.forceActiveFocus(); item.focusDefault() })
         }
@@ -83,6 +88,7 @@ Window {
 
         TransitionView {
             anchors.fill: parent
+            visible: opacity > 0 && !window.overlayMode
             shown: Life.state === "launching" || Life.state === "closing" || Life.state === "running"
         }
 
@@ -94,6 +100,25 @@ Window {
 
         IdleView {
             anchors.fill: parent
+        }
+
+        // Screenshots only: a stand-in for the running app behind the menu.
+        Image {
+            anchors.fill: parent
+            visible: window.overlayMode && window.debugView.startsWith("overlay")
+            source: visible ? "image://icon/background/mountains" : ""
+            sourceSize: Qt.size(width, height)
+        }
+        Loader {
+            id: overlayLoader
+            anchors.fill: parent
+            active: window.overlayMode
+            sourceComponent: OverlayView {}
+            onLoaded: {
+                item.forceActiveFocus()
+                const sub = window.debugView.replace(/^overlay-?/, "")
+                item.open(sub === "" ? "main" : sub)
+            }
         }
 
         FatalConfigView {

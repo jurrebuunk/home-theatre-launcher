@@ -2,6 +2,7 @@
 
 #include "input/InputRouter.h"
 #include "lifecycle/LifecycleController.h"
+#include "ui/OverlayState.h"
 
 #include <LayerShellQt/Window>
 #include <QGuiApplication>
@@ -9,11 +10,12 @@
 #include <QQuickWindow>
 
 WindowController::WindowController(QQuickWindow *window, LifecycleController *life, InputRouter *input,
-                                   bool layerShell, QObject *parent)
+                                   OverlayState *overlay, bool layerShell, QObject *parent)
     : QObject(parent)
     , m_window(window)
     , m_life(life)
     , m_input(input)
+    , m_overlay(overlay)
     , m_layerShell(layerShell)
 {
     if (m_layerShell) {
@@ -27,14 +29,17 @@ WindowController::WindowController(QQuickWindow *window, LifecycleController *li
         layer->setScope(QStringLiteral("home-theatre-launcher"));
     }
     connect(m_life, &LifecycleController::changed, this, &WindowController::update);
+    connect(m_overlay, &OverlayState::openChanged, this, &WindowController::update);
     update();
 }
 
 void WindowController::update()
 {
     const bool running = m_life->state() == LifecycleController::State::Running;
-    m_input->setNavigationEnabled(!running);
-    if (running) {
+    const bool menu = running && m_overlay->isOpen();
+    m_input->setNavigationEnabled(!running || menu);
+    m_input->setGrabbed(menu);
+    if (running && !menu) {
         if (m_window->isVisible())
             m_window->hide();
         return;

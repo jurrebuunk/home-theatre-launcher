@@ -5,6 +5,8 @@ import QtQuick
 FocusScope {
     id: root
     property bool forceNoAdapter: false
+    // Side panel of the in-app menu: no left column, scan / power in the header.
+    property bool compact: false
     signal closeRequested()
 
     readonly property bool noAdapter: forceNoAdapter || !Bt.serviceAvailable || !Bt.hasAdapter
@@ -18,6 +20,12 @@ FocusScope {
             noAdapterView.focusDefault()
         else if (rowCount > 0)
             focusRow(0)
+        else
+            focusHeader()
+    }
+    function focusHeader() {
+        if (compact)
+            scanTool.forceActiveFocus()
         else
             scanPanel.forceActiveFocus()
     }
@@ -54,22 +62,54 @@ FocusScope {
     onNoAdapterChanged: if (activeFocus || visible) Qt.callLater(focusDefault)
     onPairingOpenChanged: if (pairingOpen) pairing.focusDefault(); else Qt.callLater(focusDefault)
 
-    Rectangle { anchors.fill: parent; color: Theme.background }
+    Rectangle { anchors.fill: parent; color: root.compact ? "transparent" : Theme.background }
     MouseArea { anchors.fill: parent }
+
+    component ToolButton: Item {
+        id: tool
+        property string iconName
+        default property alias content: slot.data
+        signal activated()
+        activeFocusOnTab: true
+        width: Theme.px(72)
+        height: Theme.px(64)
+        readonly property color fg: activeFocus ? Theme.background : Theme.text
+        Rectangle {
+            anchors.fill: parent
+            color: tool.activeFocus ? Theme.accent : "transparent"
+            border.color: Theme.border
+            border.width: tool.activeFocus ? 0 : Theme.borderWidth
+        }
+        FocusFrame {}
+        Icon { visible: tool.iconName !== ""; anchors.centerIn: parent; name: tool.iconName; size: Theme.px(30); tint: tool.fg }
+        Item { id: slot; anchors.fill: parent }
+        Keys.onPressed: (event) => {
+            if (Theme.isSelect(event.key)) { event.accepted = true; tool.activated() }
+        }
+        MouseArea { anchors.fill: parent; onClicked: { tool.forceActiveFocus(); tool.activated() } }
+    }
 
     Item {
         id: page
         anchors.fill: parent
-        anchors.leftMargin: Theme.px(Theme.layout.safeMargin)
-        anchors.rightMargin: Theme.px(Theme.layout.safeMargin)
-        anchors.topMargin: Theme.px(Theme.layout.safeMarginVertical)
-        anchors.bottomMargin: Theme.px(Theme.layout.safeMarginVertical)
+        anchors.leftMargin: root.compact ? 0 : Theme.px(Theme.layout.safeMargin)
+        anchors.rightMargin: root.compact ? 0 : Theme.px(Theme.layout.safeMargin)
+        anchors.topMargin: root.compact ? 0 : Theme.px(Theme.layout.safeMarginVertical)
+        anchors.bottomMargin: root.compact ? 0 : Theme.px(Theme.layout.safeMarginVertical)
         visible: !root.noAdapter && !root.pairingOpen && root.forgetPath === ""
 
         Row {
             id: header
             height: Theme.px(Theme.layout.statusRowHeight + 20)
             spacing: Theme.px(28)
+            Icon {
+                visible: root.compact
+                name: "chevron-left"
+                size: Theme.px(36)
+                tint: Theme.muted
+                anchors.verticalCenter: parent.verticalCenter
+                MouseArea { anchors.fill: parent; onClicked: root.close() }
+            }
             Icon {
                 name: "bluetooth"
                 size: Theme.px(48)
@@ -82,15 +122,54 @@ FocusScope {
                 anchors.verticalCenter: parent.verticalCenter
             }
         }
+        Row {
+            id: tools
+            visible: root.compact
+            anchors.right: parent.right
+            anchors.verticalCenter: header.verticalCenter
+            spacing: Theme.px(22)
+            ToolButton {
+                id: scanTool
+                iconName: "search"
+                enabled: Bt.powered
+                opacity: enabled ? 1 : 0.5
+                KeyNavigation.right: powerTool
+                Keys.onDownPressed: root.focusRow(0)
+                onActivated: Bt.toggleScan()
+            }
+            ToolButton {
+                id: powerTool
+                width: Theme.px(100)
+                KeyNavigation.left: scanTool
+                Keys.onDownPressed: root.focusRow(0)
+                onActivated: Bt.setPowered(!Bt.powered)
+                Toggle {
+                    anchors.centerIn: parent
+                    checked: Bt.powered
+                    knob: powerTool.activeFocus ? Theme.background : Theme.accent
+                }
+            }
+        }
         Separator {
             id: headerLine
             anchors.top: header.bottom
             anchors.left: parent.left
             anchors.right: parent.right
         }
+        Rectangle {
+            // remaining scan time under the header tools
+            visible: root.compact && (Bt.discovering || Bt.scanRemaining > 0)
+            anchors.top: headerLine.top
+            anchors.right: parent.right
+            height: Math.max(2, Theme.px(4))
+            width: tools.width * Math.max(0, Bt.scanRemaining) / Math.max(1, Bt.scanDuration)
+            color: Theme.accent
+        }
 
         Column {
             id: leftColumn
+            visible: !root.compact
+            width: root.compact ? 0 : implicitWidth
             anchors.top: headerLine.bottom
             anchors.topMargin: Theme.px(50)
             anchors.left: parent.left
@@ -176,8 +255,8 @@ FocusScope {
             id: list
             anchors.top: headerLine.bottom
             anchors.topMargin: Theme.px(30)
-            anchors.left: leftColumn.right
-            anchors.leftMargin: Theme.px(80)
+            anchors.left: root.compact ? parent.left : leftColumn.right
+            anchors.leftMargin: root.compact ? 0 : Theme.px(80)
             anchors.right: parent.right
             anchors.bottom: footerLine.top
             anchors.bottomMargin: Theme.px(16)
@@ -205,10 +284,10 @@ FocusScope {
                     DeviceRow {
                         path: model.path; name: model.name; kind: model.kind
                         connected: model.connected; trusted: model.trusted; paired: true; busy: model.busy
-                        onUpPressed: index === 0 ? null : root.focusRow(index - 1)
+                        onUpPressed: index === 0 ? (root.compact ? root.focusHeader() : null) : root.focusRow(index - 1)
                         onDownPressed: root.focusRow(index + 1)
                         onForgetRequested: (p, n) => { root.forgetPath = p; root.forgetName = n; forgetCancel.forceActiveFocus() }
-                        Keys.onLeftPressed: powerPanel.forceActiveFocus()
+                        Keys.onLeftPressed: root.compact ? null : powerPanel.forceActiveFocus()
                     }
                 }
                 Item { width: 1; height: Theme.px(40) }
@@ -227,9 +306,10 @@ FocusScope {
                     DeviceRow {
                         path: model.path; name: model.name; kind: model.kind
                         connected: false; trusted: false; paired: false; busy: model.busy
-                        onUpPressed: root.focusRow(Bt.paired.count + index - 1)
+                        onUpPressed: Bt.paired.count + index === 0 && root.compact ? root.focusHeader()
+                                   : root.focusRow(Bt.paired.count + index - 1)
                         onDownPressed: root.focusRow(Bt.paired.count + index + 1)
-                        Keys.onLeftPressed: scanPanel.forceActiveFocus()
+                        Keys.onLeftPressed: root.compact ? null : scanPanel.forceActiveFocus()
                     }
                 }
             }
@@ -246,6 +326,8 @@ FocusScope {
             id: hints
             anchors.left: parent.left
             anchors.bottom: parent.bottom
+            hints: root.compact ? [{ a: "select", t: "Select" }, { a: "back", t: "Back" }]
+                                : [{ a: "select", t: "Select" }, { a: "back", t: "Back" }, { a: "home", t: "Home" }]
         }
     }
 

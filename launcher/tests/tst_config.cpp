@@ -73,6 +73,7 @@ private Q_SLOTS:
         QTest::newRow("idle slideshow") << wrap({}, R"("behavior":{"idle":{"background":{"type":"slideshow"}}})") << "needs images";
         QTest::newRow("idle dim") << wrap({}, R"("behavior":{"idle":{"background":{"dim":2}}})") << "dim";
         QTest::newRow("idle timeout") << wrap({}, R"("behavior":{"idle":{"timeout":0}})") << "idle.timeout";
+        QTest::newRow("overlay dim") << wrap({}, R"("behavior":{"overlay":{"dim":1.5}})") << "overlay.dim";
         QTest::newRow("missing icon") << wrap(R"({"id":"a","label":"A","command":["/x"],"icon":"/nonexistent.svg"})") << "does not exist";
     }
     void rejects()

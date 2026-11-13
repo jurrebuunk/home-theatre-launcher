@@ -96,6 +96,10 @@ void Config::setDefaults()
     };
     m_clock = {{"format", "HH:mm"}, {"dateFormat", "dddd d MMMM"}, {"locale", "en_GB"}, {"timeZone", QString()}};
     m_network = {{"scanDuration", 10}};
+    m_overlay = {
+        {"enable", true}, {"gamepadCodes", QStringList{"BTN_MODE"}}, {"keyboardCodes", QStringList{"KEY_HOMEPAGE"}},
+        {"dim", 0.5}, {"grabControllers", true},
+    };
     m_idle = {
         {"enable", true}, {"timeout", 300}, {"showStatus", true},
         {"background", QVariantMap{{"type", "color"}, {"color", QString()}, {"image", QString()},
@@ -175,6 +179,7 @@ bool Config::loadJson(const QByteArray &json)
     m_clock = merged(m_clock, behavior.value("clock").toMap());
     m_network = merged(m_network, behavior.value("network").toMap());
     m_idle = merged(m_idle, behavior.value("idle").toMap());
+    m_overlay = merged(m_overlay, behavior.value("overlay").toMap());
 
     // Validate appearance.
     static const QRegularExpression colorRe(QStringLiteral("^#[0-9a-fA-F]{6}$"));
@@ -202,6 +207,8 @@ bool Config::loadJson(const QByteArray &json)
         m_errors << QStringLiteral("appearance.alignment must be left or center");
 
     validateIdle();
+    if (m_overlay.value("dim").toDouble() < 0 || m_overlay.value("dim").toDouble() > 1)
+        m_errors << QStringLiteral("behavior.overlay.dim must be in [0, 1]");
     if (m_network.value("scanDuration").toInt() <= 0)
         m_errors << QStringLiteral("behavior.network.scanDuration must be > 0");
 

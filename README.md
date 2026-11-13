@@ -6,7 +6,8 @@ entirely through Nix: one persistent **labwc** compositor, a fullscreen
 launch any application you configure; Moonlight and Waydroid are only
 ready-made examples. The launcher also includes a full Bluetooth menu, a
 Network screen (Ethernet details and Wi-Fi with an on-screen keyboard), an
-idle screen with a large clock, an internet indicator and a clock.
+in-app menu over running apps, an idle screen with a large clock, an
+internet indicator and a clock.
 
 ![Home](docs/screenshots/home.png)
 
@@ -38,6 +39,10 @@ Rendered by the app itself (`--screenshot`, demo data) at 1920×1080.
 | **Network → Wi-Fi**: power, timed scan, networks with signal / lock / connected | Password entry with the on-screen keyboard (A type, X delete, Menu connect) |
 | ![Ethernet](docs/screenshots/network-ethernet.png) | ![Idle](docs/screenshots/idle-image.png) |
 | **Network → Ethernet**: speed, reachability, Automatic / Manual IPv4 | **Idle screen** over an image (`builtin:mountains`) |
+| ![In-app menu](docs/screenshots/overlay.png) | ![In-app Bluetooth](docs/screenshots/overlay-bluetooth.png) |
+| **In-app menu** over a running app (dimmed, still running) | Bluetooth from inside an app |
+| ![In-app Network](docs/screenshots/overlay-network.png) | ![Close app](docs/screenshots/overlay-close.png) |
+| Network from inside an app | Close confirmation |
 
 ## Use it from a NixOS flake
 
@@ -138,6 +143,27 @@ never also launches something.
 clock) apply to pictures and video. Set `behavior.idle.enable = false` to turn
 it off. The date line uses `behavior.clock.dateFormat` and `locale`.
 
+### In-app menu
+
+While an app runs, a short press of Guide / PS (or `KEY_HOMEPAGE` on a
+remote) opens a side panel over it: clock, the app and how long it has run,
+**Resume**, **Bluetooth**, **Network** and **Close app** (with a
+confirmation). The app keeps running and moving behind a dim layer. Holding
+the button still returns straight home. The menu never opens on the launcher
+itself.
+
+```nix
+behavior.overlay = {
+  gamepadCodes = [ "BTN_MODE" "BTN_SELECT+BTN_START" ]; # buttons or combos
+  keyboardCodes = [ "KEY_HOMEPAGE" "KEY_LEFTCTRL+KEY_M" ];
+  dim = 0.5;
+  grabControllers = true; # the app doesn't see button presses meant for the menu
+};
+```
+
+Combos fire when they are released, so the app never keeps a stuck button.
+`ToggleOverlay()` on the control API can back a compositor keybinding too.
+
 ### Network screen
 
 Select the network icon in the status row. Without NetworkManager the screen
@@ -194,8 +220,8 @@ compositor. See `nix/module.nix` for every option and its default.
   screen.
 - **On top of apps:** the launcher is a layer-shell overlay, so
   *Starting…* and *Closing…* stay above the app. It unmaps while an app runs.
-- **Input:** the launcher reads controllers through evdev (read-only, never
-  grabbed). Holding Home works inside apps, controllers can navigate the
+- **Input:** the launcher reads controllers through evdev (read-only; only
+  grabbed while the in-app menu is open). Holding Home works inside apps, controllers can navigate the
   launcher, and the button prompts follow the last-used device (Xbox,
   PlayStation, keyboard or remote).
 - **Bluetooth:** uses BlueZ over D-Bus with its own pairing agent. It
@@ -206,10 +232,10 @@ compositor. See `nix/module.nix` for every option and its default.
   route, then DNS, then an HTTPS request with an expected status. The checks
   are timer driven and never block the UI or app launches.
 - **Control API:** `nl.jurrebuunk.HomeTheatre1` on the session bus provides
-  `Launch(s)`, `Home()`, `OpenBluetooth()`, `OpenNetwork()`, `EnterIdle()`,
+  `Launch(s)`, `Home()`, `OpenBluetooth()`, `OpenNetwork()`, `ToggleOverlay()`, `EnterIdle()`,
   `Wake()`, the network calls (`NetworkInterfaces`, `WifiNetworks`,
   `WifiScan`, `WifiConnect(ss)`, `WifiConnectStatus`, `SetIpv4(sssss)`) and
-  the `State` / `Idle` properties. The VM tests use it, and it can also back
+  the `State` / `Idle` / `OverlayOpen` properties. The VM tests use it, and it can also back
   a compositor keybinding.
 
 ## Development
@@ -226,7 +252,8 @@ nix flake check                  # package + unit tests + both NixOS VM tests
 
 Screenshot views: `home`, `starting`, `closing`, `error-start`, `error-stop`,
 `bluetooth`, `pairing`, `bt-no-adapter`, `network-wifi`, `network-password`,
-`network-ethernet`, `idle`, `idle-image`. The README images in
+`network-ethernet`, `idle`, `idle-image`, `overlay`, `overlay-bluetooth`,
+`overlay-network`, `overlay-close`. The README images in
 `docs/screenshots/` are made this way (fonts via `FONTCONFIG_FILE` with STIX Two
 and IBM Plex Mono).
 

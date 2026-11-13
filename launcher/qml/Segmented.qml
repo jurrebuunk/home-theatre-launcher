@@ -3,8 +3,10 @@ import QtQuick
 // Joined square buttons; `current` is outlined, focus fills with accent.
 Row {
     id: root
-    property var options: []      // [{ value, text }]
+    property var options: []      // [{ value, text, icon? }]
     property string current
+    property bool followFocus: false // choose as soon as focus moves (tabs)
+    property real optionWidth: 0
     property alias firstItem: repeater.firstItem
     signal chosen(string value)
 
@@ -17,7 +19,8 @@ Row {
         Item {
             id: option
             activeFocusOnTab: true
-            width: Math.max(Theme.px(270), label.implicitWidth + Theme.px(80))
+            width: root.optionWidth > 0 ? root.optionWidth : Math.max(Theme.px(270), content.implicitWidth + Theme.px(80))
+            onActiveFocusChanged: if (activeFocus && root.followFocus && !isCurrent) root.chosen(modelData.value)
             height: Theme.px(Theme.layout.buttonHeight)
             readonly property bool isCurrent: modelData.value === root.current
             KeyNavigation.left: index > 0 ? repeater.itemAt(index - 1) : null
@@ -30,11 +33,22 @@ Row {
                 border.width: option.activeFocus ? 0 : Theme.borderWidth
             }
             FocusFrame {}
-            Label {
-                id: label
+            Row {
+                id: content
                 anchors.centerIn: parent
-                text: modelData.text
-                color: option.activeFocus ? Theme.background : option.isCurrent ? Theme.text : Theme.muted
+                spacing: Theme.px(16)
+                Icon {
+                    visible: !!modelData.icon
+                    anchors.verticalCenter: parent.verticalCenter
+                    name: modelData.icon || ""
+                    size: Theme.px(28)
+                    tint: option.activeFocus ? Theme.background : Theme.accent
+                }
+                Label {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: modelData.text
+                    color: option.activeFocus ? Theme.background : option.isCurrent ? Theme.text : Theme.muted
+                }
             }
             Keys.onPressed: (event) => {
                 if (Theme.isSelect(event.key)) {

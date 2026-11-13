@@ -1,5 +1,7 @@
 #include "LifecycleController.h"
 
+#include <QDateTime>
+
 #include <QLoggingCategory>
 #include <QRegularExpression>
 #include <QStandardPaths>
@@ -79,6 +81,10 @@ void LifecycleController::setState(State s)
         return "";
     }() << m_app.id;
     m_state = s;
+    if (s == State::Running)
+        m_runningSince = QDateTime::currentMSecsSinceEpoch();
+    else if (s != State::Closing)
+        m_runningSince = 0;
     Q_EMIT changed();
 }
 
@@ -544,5 +550,6 @@ void LifecycleController::debugShow(const QString &state, const QString &appId, 
                                               {"running", State::Running}, {"closing", State::Closing},
                                               {"error", State::Error}};
     m_state = states.value(state, State::Launcher);
+    m_runningSince = m_state == State::Running ? QDateTime::currentMSecsSinceEpoch() - 84 * 60 * 1000 : 0;
     Q_EMIT changed();
 }

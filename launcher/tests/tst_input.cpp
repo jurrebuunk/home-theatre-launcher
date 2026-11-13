@@ -30,6 +30,13 @@ private Q_SLOTS:
         QCOMPARE(InputRouter::axisDirection(0.3, 0.8, 0.5), int(InputRouter::Down));
         QCOMPARE(InputRouter::axisDirection(0.2, -0.6, 0.5), int(InputRouter::Up));
     }
+    void overlayCombos()
+    {
+        const auto combos = InputRouter::parseCombos({"BTN_MODE", "BTN_SELECT+BTN_START", "NOPE", "KEY_F1+NOPE"});
+        QCOMPARE(combos.size(), 2);
+        QCOMPARE(combos.at(0).size(), 1);
+        QCOMPARE(combos.at(1).size(), 2);
+    }
     void deviceKinds()
     {
         QCOMPARE(DeviceModel::kindForIcon("input-gaming", "DualSense"), QStringLiteral("gamepad"));

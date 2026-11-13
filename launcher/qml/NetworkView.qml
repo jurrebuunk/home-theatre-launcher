@@ -5,6 +5,9 @@ import QtQuick
 FocusScope {
     id: root
     property string debugView
+    // Side panel of the in-app menu: interface tabs instead of the left column.
+    property bool compact: false
+    readonly property bool entryOpen: !!entry
     signal closeRequested()
 
     readonly property var details: Nm.details
@@ -27,6 +30,11 @@ FocusScope {
     }
     function focusInterface() {
         const i = Nm.interfaces.findIndex(x => x.name === Nm.selected)
+        if (compact) {
+            const tab = tabs.itemAt(Math.max(0, i))
+            if (tab) tab.forceActiveFocus()
+            return
+        }
         const item = ifaceRepeater.itemAt(Math.max(0, i))
         if (item)
             item.forceActiveFocus()
@@ -119,22 +127,30 @@ FocusScope {
         }
     }
 
-    Rectangle { anchors.fill: parent; color: Theme.background }
+    Rectangle { anchors.fill: parent; color: root.compact && !root.entry ? "transparent" : Theme.background }
     MouseArea { anchors.fill: parent }
 
     Item {
         id: page
         anchors.fill: parent
-        anchors.leftMargin: Theme.px(Theme.layout.safeMargin)
-        anchors.rightMargin: Theme.px(Theme.layout.safeMargin)
-        anchors.topMargin: Theme.px(Theme.layout.safeMarginVertical)
-        anchors.bottomMargin: Theme.px(Theme.layout.safeMarginVertical)
+        anchors.leftMargin: root.compact ? 0 : Theme.px(Theme.layout.safeMargin)
+        anchors.rightMargin: root.compact ? 0 : Theme.px(Theme.layout.safeMargin)
+        anchors.topMargin: root.compact ? 0 : Theme.px(Theme.layout.safeMarginVertical)
+        anchors.bottomMargin: root.compact ? 0 : Theme.px(Theme.layout.safeMarginVertical)
         visible: !root.entry
 
         Row {
             id: header
             height: Theme.px(Theme.layout.statusRowHeight + 20)
             spacing: Theme.px(28)
+            Icon {
+                visible: root.compact
+                name: "chevron-left"
+                size: Theme.px(36)
+                tint: Theme.muted
+                anchors.verticalCenter: parent.verticalCenter
+                MouseArea { anchors.fill: parent; onClicked: root.close() }
+            }
             Icon {
                 name: root.wifi ? "wifi" : "ethernet"
                 size: Theme.px(48)
@@ -154,8 +170,24 @@ FocusScope {
             anchors.right: parent.right
         }
 
+        Segmented {
+            id: tabs
+            visible: root.compact
+            anchors.top: headerLine.bottom
+            anchors.topMargin: Theme.px(34)
+            anchors.left: parent.left
+            followFocus: true
+            optionWidth: Nm.interfaces.length > 0 ? page.width / Nm.interfaces.length : 0
+            options: Nm.interfaces.map(i => ({ value: i.name, text: i.label, icon: i.kind === "wifi" ? "wifi" : "ethernet" }))
+            current: Nm.selected
+            onChosen: (value) => Nm.select(value)
+            Keys.onDownPressed: root.enterContent()
+        }
+
         Column {
             id: leftColumn
+            visible: !root.compact
+            width: root.compact ? 0 : implicitWidth
             anchors.top: headerLine.bottom
             anchors.topMargin: Theme.px(50)
             anchors.left: parent.left
@@ -247,10 +279,10 @@ FocusScope {
         EthernetDetails {
             id: ethernet
             visible: !root.wifi && Nm.interfaces.length > 0
-            anchors.top: headerLine.bottom
+            anchors.top: root.compact ? tabs.bottom : headerLine.bottom
             anchors.topMargin: Theme.px(46)
-            anchors.left: leftColumn.right
-            anchors.leftMargin: Theme.px(80)
+            anchors.left: root.compact ? parent.left : leftColumn.right
+            anchors.leftMargin: root.compact ? 0 : Theme.px(80)
             anchors.right: parent.right
             details: root.details
             onLeftPressed: root.focusInterface()
@@ -270,10 +302,10 @@ FocusScope {
         Flickable {
             id: list
             visible: root.wifi
-            anchors.top: headerLine.bottom
-            anchors.topMargin: Theme.px(50)
-            anchors.left: leftColumn.right
-            anchors.leftMargin: Theme.px(80)
+            anchors.top: root.compact ? tabs.bottom : headerLine.bottom
+            anchors.topMargin: Theme.px(root.compact ? 30 : 50)
+            anchors.left: root.compact ? parent.left : leftColumn.right
+            anchors.leftMargin: root.compact ? 0 : Theme.px(80)
             anchors.right: parent.right
             anchors.bottom: footerLine.top
             anchors.bottomMargin: Theme.px(16)
@@ -302,7 +334,7 @@ FocusScope {
                     NetworkRow {
                         ssid: model.ssid; bars: model.bars; secured: model.secured
                         active: model.active; saved: model.saved
-                        onUpPressed: index === 0 ? null : root.focusRow(index - 1)
+                        onUpPressed: index === 0 ? (root.compact ? root.focusInterface() : null) : root.focusRow(index - 1)
                         onDownPressed: root.focusRow(index + 1)
                         onConnectRequested: (s) => root.requestConnect(s)
                         Keys.onLeftPressed: root.focusInterface()

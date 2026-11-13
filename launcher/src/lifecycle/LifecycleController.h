@@ -25,6 +25,8 @@ class LifecycleController : public QObject
     Q_PROPERTY(QString errorTitle READ errorTitle NOTIFY changed)
     Q_PROPERTY(QString errorDetails READ errorDetails NOTIFY changed)
     Q_PROPERTY(bool cleanupIncomplete READ cleanupIncomplete NOTIFY changed)
+    // ms since the epoch when the current app became ready (0 when none)
+    Q_PROPERTY(qint64 runningSince READ runningSince NOTIFY changed)
 
 public:
     enum class State { Launcher, Launching, Running, Closing, Error };
@@ -43,6 +45,7 @@ public:
     QString errorTitle() const;
     QString errorDetails() const { return m_errorDetails; }
     bool cleanupIncomplete() const { return m_cleanupIncomplete; }
+    qint64 runningSince() const { return m_runningSince; }
 
     // Adopt a still-running app after a launcher restart, stop strays.
     void startup();
@@ -88,6 +91,7 @@ private:
     AppSpec m_app;
     int m_lastIndex = 0;
     int m_op = 0;
+    qint64 m_runningSince = 0;
 
     UnitBackend::UnitState m_unit;
     bool m_unitKnown = false;
