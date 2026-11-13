@@ -7,12 +7,27 @@ launch any application you configure; Moonlight and Waydroid are only
 ready-made examples. The launcher also includes a full Bluetooth menu, a
 read-only internet indicator and a clock.
 
-![Home](docs/design/01-home.png)
+![Home](docs/screenshots/home.png)
 
 The design is in `docs/design/` (rendered from the original PDF) and
 follows flatwork-ui: flat, dark and square. The one deliberate difference is
 the controller button prompts, which use the real Xbox / PS5 glyphs from
 Kenney *Input Prompts* (CC0, `launcher/assets/glyphs/`).
+
+## Screenshots
+
+Rendered by the app itself (`--screenshot`, demo data) at 1920×1080.
+
+| | |
+|---|---|
+| ![Home](docs/screenshots/home.png) | ![Starting](docs/screenshots/starting.png) |
+| **Home**: app tiles with Bluetooth, internet and clock | **Starting…** shown above the app until its window is ready |
+| ![Bluetooth](docs/screenshots/bluetooth.png) | ![Bluetooth, PlayStation prompts](docs/screenshots/bluetooth-playstation.png) |
+| **Bluetooth** menu with Xbox button prompts | Prompts follow the last-used controller (PS5) |
+| ![Pairing](docs/screenshots/pairing.png) | ![No adapter](docs/screenshots/bt-no-adapter.png) |
+| **Pairing**: confirm the passkey; trust is opt-in | No Bluetooth adapter |
+| ![Start failed](docs/screenshots/error-start.png) | ![Still closing](docs/screenshots/error-stop.png) |
+| Readable start error with Retry / Dismiss | Cleanup incomplete: Stop again forces it and launches stay blocked |
 
 ## Use it from a NixOS flake
 
@@ -152,7 +167,9 @@ nix flake check                  # package + unit tests + NixOS VM integration t
 ```
 
 Screenshot views: `home`, `starting`, `closing`, `error-start`, `error-stop`,
-`bluetooth`, `pairing`, `bt-no-adapter`.
+`bluetooth`, `pairing`, `bt-no-adapter`. The README images in
+`docs/screenshots/` are made this way (fonts via `FONTCONFIG_FILE` with STIX Two
+and IBM Plex Mono).
 
 ## Verify on the real machine
 
