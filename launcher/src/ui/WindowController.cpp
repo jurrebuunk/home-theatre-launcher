@@ -2,7 +2,10 @@
 
 #include "input/InputRouter.h"
 #include "lifecycle/LifecycleController.h"
+#include "notify/Notifier.h"
 #include "ui/OverlayState.h"
+
+#include <QTimer>
 
 #include <LayerShellQt/Window>
 #include <QGuiApplication>
@@ -33,6 +36,43 @@ WindowController::WindowController(QQuickWindow *window, LifecycleController *li
     update();
 }
 
+void WindowController::setIndicators(QQuickWindow *window, Notifier *notifier)
+{
+    m_indicators = window;
+    m_notifier = notifier;
+    if (!m_indicators || !m_layerShell)
+        return; // windowed/dev mode: drawn inside the main window instead
+    m_indicators->setFlag(Qt::WindowTransparentForInput, true);
+    auto *layer = LayerShellQt::Window::get(m_indicators);
+    layer->setLayer(LayerShellQt::Window::LayerOverlay);
+    layer->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
+    layer->setAnchors(LayerShellQt::Window::Anchors(LayerShellQt::Window::AnchorTop | LayerShellQt::Window::AnchorBottom
+                                                    | LayerShellQt::Window::AnchorLeft
+                                                    | LayerShellQt::Window::AnchorRight));
+    layer->setExclusiveZone(-1);
+    layer->setScope(QStringLiteral("home-theatre-indicators"));
+    connect(m_notifier, &Notifier::activeChanged, this, [this] { updateIndicators(false); });
+}
+
+void WindowController::updateIndicators(bool raise)
+{
+    if (!m_indicators || !m_layerShell)
+        return;
+    if (m_notifier->active()) {
+        // Re-map to stay above a launcher surface that was just mapped.
+        if (raise && m_indicators->isVisible())
+            m_indicators->hide();
+        if (!m_indicators->isVisible())
+            m_indicators->show();
+    } else if (m_indicators->isVisible()) {
+        // Let the fade-out finish first.
+        QTimer::singleShot(250, this, [this] {
+            if (!m_notifier->active())
+                m_indicators->hide();
+        });
+    }
+}
+
 void WindowController::update()
 {
     const bool running = m_life->state() == LifecycleController::State::Running;
@@ -51,6 +91,7 @@ void WindowController::update()
             m_window->showFullScreen();
     }
     m_window->requestActivate();
+    updateIndicators(true);
 }
 
 void WindowController::injectNavigation(int action, int selectKey, int backKey)

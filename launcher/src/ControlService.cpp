@@ -3,6 +3,8 @@
 #include "idle/IdleMonitor.h"
 #include "lifecycle/LifecycleController.h"
 #include "network/NetworkSettings.h"
+#include "audio/SoundManager.h"
+#include "notify/Notifier.h"
 #include "ui/OverlayState.h"
 
 #include <QDBusConnection>
@@ -78,6 +80,46 @@ bool ControlService::idle() const
 bool ControlService::overlayOpen() const
 {
     return m_overlay->isOpen();
+}
+
+int ControlService::volume() const
+{
+    return m_sound ? m_sound->volume() : 0;
+}
+
+QStringList ControlService::SoundOutputs()
+{
+    QStringList out;
+    if (m_sound)
+        for (const QVariant &v : m_sound->outputs()) {
+            const QVariantMap o = v.toMap();
+            out << (o.value("current").toBool() ? QStringLiteral("*") : QString()) + o.value("name").toString()
+                    + QLatin1Char(' ') + o.value("label").toString();
+        }
+    return out;
+}
+
+void ControlService::SetSoundOutput(const QString &name)
+{
+    if (m_sound)
+        m_sound->setOutput(name);
+}
+
+void ControlService::SetVolume(int percent)
+{
+    if (m_sound)
+        m_sound->setVolume(percent);
+}
+
+void ControlService::VolumeStep(int direction)
+{
+    if (m_sound)
+        m_sound->step(direction);
+}
+
+QStringList ControlService::Notifications()
+{
+    return m_notifier ? m_notifier->titles() : QStringList();
 }
 
 void ControlService::ToggleOverlay()

@@ -1,7 +1,9 @@
 #include "Config.h"
 #include "ControlService.h"
 #include "bluetooth/BluetoothManager.h"
+#include "audio/SoundManager.h"
 #include "idle/IdleMonitor.h"
+#include "notify/Notifier.h"
 #include "input/InputRouter.h"
 #include "lifecycle/BusNameWatcher.h"
 #include "lifecycle/Fakes.h"
@@ -22,6 +24,8 @@
 #include <QQmlContext>
 #include <QQuickWindow>
 #include <QTimer>
+
+#include <memory>
 
 Q_LOGGING_CATEGORY(lcMain, "htl.main")
 
@@ -63,7 +67,8 @@ int main(int argc, char *argv[])
                                QStringLiteral("Render a view (home, starting, closing, error-start, error-stop, bluetooth, "
                                               "pairing, bt-no-adapter, network-wifi, network-password, "
                                               "network-ethernet, idle, idle-image, overlay, overlay-bluetooth, "
-                                              "overlay-network, overlay-close) to <file> and exit. "
+                                              "overlay-network, overlay-sound, overlay-close, sound, notifications, "
+                                              "volume) to <file> and exit. "
                                               "Implies --demo."),
                                QStringLiteral("view:file"));
     QCommandLineOption glyphsOpt(QStringLiteral("glyphs"),
@@ -117,6 +122,37 @@ int main(int argc, char *argv[])
     IdleMonitor idle(&config);
     OverlayState overlay(&life, config.overlay().value("enable").toBool(), config.overlay().value("dim").toDouble());
     ControlService control(&life, &networkSettings, &idle, &overlay);
+    SoundManager sound(&config, demo);
+    Notifier notifier(&config);
+    control.setSound(&sound, &notifier);
+    sound.setBatteryLookup([&bluetooth](const QString &address) { return bluetooth.batteryForAddress(address); });
+
+    // Notifications from Bluetooth, network and sound.
+    QObject::connect(&bluetooth, &BluetoothManager::connectionChanged, &notifier, [&](const QString &path, bool connected) {
+        const QVariantMap d = bluetooth.deviceInfo(path);
+        notifier.deviceConnection(path, d.value("name").toString(), d.value("kind").toString(), connected,
+                                  d.value("battery").toInt());
+    });
+    QObject::connect(&bluetooth, &BluetoothManager::batteryChanged, &notifier, [&](const QString &path, int percent) {
+        const QVariantMap d = bluetooth.deviceInfo(path);
+        if (d.value("connected").toBool())
+            notifier.deviceBattery(path, d.value("name").toString(), d.value("kind").toString(), percent);
+        Q_EMIT sound.changed(); // battery shown next to Bluetooth outputs
+    });
+    QObject::connect(&networkSettings, &NetworkSettings::wifiLink, &notifier, &Notifier::wifi);
+    {
+        auto lastNoLink = std::make_shared<int>(-1); // -1 unknown, 0 link, 1 no cable
+        QObject::connect(&network, &NetworkStatus::changed, &notifier, [&network, &notifier, lastNoLink] {
+            if (network.state() == QLatin1String("checking"))
+                return;
+            const int noLink = network.reason() == QLatin1String("nolink") ? 1 : 0;
+            if (*lastNoLink >= 0 && noLink != *lastNoLink)
+                notifier.ethernet(!noLink);
+            *lastNoLink = noLink;
+        });
+    }
+    QObject::connect(&sound, &SoundManager::outputSwitched, &notifier, &Notifier::outputSwitched);
+    QObject::connect(&sound, &SoundManager::volumeChanged, &notifier, &Notifier::showVolume);
     if (parser.isSet(glyphsOpt))
         input.setLastDevice(parser.value(glyphsOpt));
 
@@ -132,6 +168,8 @@ int main(int argc, char *argv[])
     ctx->setContextProperty(QStringLiteral("Nm"), &networkSettings);
     ctx->setContextProperty(QStringLiteral("Idle"), &idle);
     ctx->setContextProperty(QStringLiteral("Overlay"), &overlay);
+    ctx->setContextProperty(QStringLiteral("Sound"), &sound);
+    ctx->setContextProperty(QStringLiteral("Notes"), &notifier);
     ctx->setContextProperty(QStringLiteral("Clock"), &clock);
     ctx->setContextProperty(QStringLiteral("Input"), &input);
     ctx->setContextProperty(QStringLiteral("Control"), &control);
@@ -155,7 +193,8 @@ int main(int argc, char *argv[])
             life.debugShow(QStringLiteral("error"), QStringLiteral("moonlight"), QStringLiteral("start"));
         else if (view == QLatin1String("error-stop"))
             life.debugShow(QStringLiteral("error"), QStringLiteral("android-tv"), QStringLiteral("stop"));
-        else if (view == QLatin1String("bluetooth") || view == QLatin1String("pairing") || view == QLatin1String("bt-no-adapter"))
+        else if (view == QLatin1String("bluetooth") || view == QLatin1String("pairing") || view == QLatin1String("bt-no-adapter")
+                 || view == QLatin1String("sound"))
             window->setProperty("debugView", view);
         if (view == QLatin1String("pairing"))
             bluetooth.demoShowPairing();
@@ -167,6 +206,12 @@ int main(int argc, char *argv[])
             if (view == QLatin1String("idle-image"))
                 idle.setBackground({{"type", "image"}, {"image", "builtin:mountains"}, {"dim", 0.0}});
             idle.enter();
+        }
+        window->setProperty("inlineIndicators", true);
+        if (view == QLatin1String("notifications") || view == QLatin1String("volume")) {
+            window->setProperty("debugView", view);
+            life.debugShow(QStringLiteral("running"), QStringLiteral("moonlight"), {});
+            notifier.demo(view);
         }
         if (view.startsWith(QLatin1String("overlay"))) {
             window->setProperty("debugView", view);
@@ -187,6 +232,15 @@ int main(int argc, char *argv[])
     }
 
     WindowController windowController(window, &life, &input, &overlay, layerShell);
+    windowController.setIndicators(qobject_cast<QQuickWindow *>(window->property("indicatorWindow").value<QObject *>()),
+                                   &notifier);
+    window->setProperty("inlineIndicators", !layerShell);
+    QObject::connect(&input, &InputRouter::volumeKey, &sound, [&sound](int direction) {
+        if (direction == 0)
+            sound.toggleMute();
+        else
+            sound.step(direction);
+    });
     QObject::connect(&input, &InputRouter::overlayRequested, &overlay, &OverlayState::toggle);
     const int selectKey = config.selectKeys().value(0, Qt::Key_Return);
     const int backKey = config.backKeys().value(0, Qt::Key_Escape);
@@ -213,5 +267,6 @@ int main(int argc, char *argv[])
         life.startup();
     }
     network.start();
+    sound.start();
     return app.exec();
 }

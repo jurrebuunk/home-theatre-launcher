@@ -86,6 +86,7 @@ Q_SIGNALS:
     void scanChanged();
     void connectingChanged();
     void lastErrorChanged();
+    void wifiLink(const QString &ssid, bool up); // after the first state
 
 private Q_SLOTS:
     void onSignal(const QDBusMessage &msg);
@@ -152,6 +153,8 @@ private:
     QTimer m_fallbackTimer;
     QTimer m_connectTimer;
     bool m_resortNext = true;
+    bool m_wifiKnown = false;
+    QString m_wifiSsid;
     int m_generation = 0;
 
     QVariantMap m_connecting;

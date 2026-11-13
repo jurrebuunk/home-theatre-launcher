@@ -50,6 +50,7 @@ Q_SIGNALS:
     void navigate(int action); // Direction values, or Select, Back, Delete, Menu
     void activity();           // any button, key or stick movement
     void overlayRequested();   // the configured in-app menu button / combo
+    void volumeKey(int direction); // +1 up, -1 down, 0 mute (works inside apps too)
     void lastDeviceChanged();
     void navigationEnabledChanged();
 
@@ -97,6 +98,7 @@ private:
     bool m_overlayEnabled = true;
     bool m_grabWanted = false;
     bool m_grabControllers = true;
+    bool m_volumeKeys = true;
     bool m_confirmSouth = true;
     double m_deadzone = 0.5;
     QString m_defaultGlyphs;

@@ -72,6 +72,10 @@ public:
     // Leaving the Bluetooth screen: stop discovery, cancel pending prompts.
     Q_INVOKABLE void close();
 
+    // name, kind, battery (-1 unknown), connected
+    Q_INVOKABLE QVariantMap deviceInfo(const QString &path) const;
+    int batteryForAddress(const QString &address) const;
+
     // Demo/screenshot support
     void demoShowPairing();
 
@@ -81,6 +85,8 @@ Q_SIGNALS:
     void requestChanged();
     void pairingChanged();
     void lastErrorChanged();
+    void connectionChanged(const QString &path, bool connected);
+    void batteryChanged(const QString &path, int percent);
 
 private Q_SLOTS:
     void onInterfacesAdded(const QDBusObjectPath &path, const QMap<QString, QVariantMap> &interfaces);

@@ -45,6 +45,7 @@ QVariant DeviceModel::data(const QModelIndex &index, int role) const
     case TrustedRole: return d.value(QStringLiteral("Trusted")).toBool();
     case PairedRole: return d.value(QStringLiteral("Paired")).toBool();
     case BusyRole: return d.value(QStringLiteral("_busy")).toBool();
+    case BatteryRole: return d.value(QStringLiteral("Battery"), -1).toInt();
     default: return {};
     }
 }
@@ -52,7 +53,8 @@ QVariant DeviceModel::data(const QModelIndex &index, int role) const
 QHash<int, QByteArray> DeviceModel::roleNames() const
 {
     return {{PathRole, "path"}, {NameRole, "name"}, {KindRole, "kind"}, {ConnectedRole, "connected"},
-            {TrustedRole, "trusted"}, {PairedRole, "paired"}, {BusyRole, "busy"}};
+            {TrustedRole, "trusted"}, {PairedRole, "paired"}, {BusyRole, "busy"},
+            {BatteryRole, "battery"}};
 }
 
 void DeviceModel::sync(const QStringList &wanted)

@@ -11,6 +11,7 @@ FocusScope {
     property bool trusted
     property bool paired
     property bool busy
+    property int battery: -1
     signal upPressed()
     signal downPressed()
     signal forgetRequested(string path, string name)
@@ -69,6 +70,11 @@ FocusScope {
                 color: Theme.muted
                 text: "Working…"
                 anchors.verticalCenter: parent.verticalCenter
+            }
+            BatteryValue {
+                anchors.verticalCenter: parent.verticalCenter
+                percent: root.battery
+                opacity: root.expanded ? 0.4 : 1
             }
             Icon {
                 visible: root.paired

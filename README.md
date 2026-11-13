@@ -6,10 +6,18 @@ entirely through Nix: one persistent **labwc** compositor, a fullscreen
 launch any application you configure; Moonlight and Waydroid are only
 ready-made examples. The launcher also includes a full Bluetooth menu, a
 Network screen (Ethernet details and Wi-Fi with an on-screen keyboard), an
-in-app menu over running apps, an idle screen with a large clock, an
-internet indicator and a clock.
+in-app menu over running apps, sound output and volume control,
+notifications that appear over everything, an idle screen with a large
+clock, an internet indicator and a clock.
 
 ![Home](docs/screenshots/home.png)
+*Home: app tiles with Bluetooth, sound, network and the clock.*
+
+![Idle screen](docs/screenshots/idle-image.png)
+*Idle screen: a large clock over a colour, picture, slideshow or video.*
+
+![In-app menu](docs/screenshots/overlay.png)
+*In-app menu over a running app, which keeps running dimmed behind it.*
 
 The design is in `docs/design/` (rendered from the original PDF) and
 follows flatwork-ui: flat, dark and square. The icons come from established
@@ -21,14 +29,14 @@ packs rather than the design's line drawings:
 - **Controller button prompts:** the real Xbox / PS5 glyphs from Kenney
   *Input Prompts*.
 
-## Screenshots
+## More screenshots
 
 Rendered by the app itself (`--screenshot`, demo data) at 1920×1080.
 
 | | |
 |---|---|
-| ![Home](docs/screenshots/home.png) | ![Starting](docs/screenshots/starting.png) |
-| **Home**: app tiles with Bluetooth, internet and clock | **Starting…** shown above the app until its window is ready |
+| ![Starting](docs/screenshots/starting.png) | ![Closing](docs/screenshots/closing.png) |
+| **Starting…** shown above the app until its window is ready | **Closing…** while the app and its services stop |
 | ![Bluetooth](docs/screenshots/bluetooth.png) | ![Bluetooth, PlayStation prompts](docs/screenshots/bluetooth-playstation.png) |
 | **Bluetooth** menu with Xbox button prompts | Prompts follow the last-used controller (PS5) |
 | ![Pairing](docs/screenshots/pairing.png) | ![No adapter](docs/screenshots/bt-no-adapter.png) |
@@ -37,12 +45,14 @@ Rendered by the app itself (`--screenshot`, demo data) at 1920×1080.
 | Readable start error with Retry / Dismiss | Cleanup incomplete: Stop again forces it and launches stay blocked |
 | ![Wi-Fi](docs/screenshots/network-wifi.png) | ![Wi-Fi password](docs/screenshots/network-password.png) |
 | **Network → Wi-Fi**: power, timed scan, networks with signal / lock / connected | Password entry with the on-screen keyboard (A type, X delete, Menu connect) |
-| ![Ethernet](docs/screenshots/network-ethernet.png) | ![Idle](docs/screenshots/idle-image.png) |
-| **Network → Ethernet**: speed, reachability, Automatic / Manual IPv4 | **Idle screen** over an image (`builtin:mountains`) |
-| ![In-app menu](docs/screenshots/overlay.png) | ![In-app Bluetooth](docs/screenshots/overlay-bluetooth.png) |
-| **In-app menu** over a running app (dimmed, still running) | Bluetooth from inside an app |
+| ![Ethernet](docs/screenshots/network-ethernet.png) | ![Idle, plain](docs/screenshots/idle.png) |
+| **Network → Ethernet**: speed, reachability, Automatic / Manual IPv4 | **Idle screen** on a plain colour |
+| ![In-app Bluetooth](docs/screenshots/overlay-bluetooth.png) | ![Sound screen](docs/screenshots/sound.png) |
+| Bluetooth from inside an app | **Sound** screen from the home status row |
 | ![In-app Network](docs/screenshots/overlay-network.png) | ![Close app](docs/screenshots/overlay-close.png) |
 | Network from inside an app | Close confirmation |
+| ![Sound](docs/screenshots/overlay-sound.png) | ![Notifications](docs/screenshots/notifications.png) |
+| **Sound**: volume and output (TV, soundbar, Bluetooth headphones) | **Notifications** and the volume indicator over an app, never dimmed |
 
 ## Use it from a NixOS flake
 
@@ -164,6 +174,37 @@ behavior.overlay = {
 Combos fire when they are released, so the app never keeps a stuck button.
 `ToggleOverlay()` on the control API can back a compositor keybinding too.
 
+### Sound
+
+The speaker icon in the status row (and **Sound** in the in-app menu) shows
+the volume of the current output and every output PipeWire offers: the TV
+over HDMI, a soundbar, Bluetooth headphones (with their battery). Selecting
+one makes it the default; playing audio follows it. Remote / keyboard volume
+keys work everywhere, also inside apps, and show a volume bar at the bottom.
+
+```nix
+behavior.sound = {
+  labels = { "alsa_output.pci-0000_00_1f.3.hdmi-stereo" = "TV"; }; # HDMI is "TV" by default
+  hidden = [ "loopback" ];
+  step = 5;
+  maxVolume = 100;
+};
+```
+
+### Notifications
+
+Short notices at the top right, at most three, on their own click-through
+surface above everything (home, apps and the in-app menu) without dimming
+anything:
+
+- Bluetooth devices connecting / disconnecting (with battery),
+- controller battery: low (20 %, shown once) and critical (10 %, red,
+  repeats every 5 minutes),
+- Wi-Fi connected / lost and the Ethernet cable plugged / unplugged,
+- the sound output switching (also when headphones disconnect and audio falls back).
+
+Thresholds and timing are in `behavior.notifications`.
+
 ### Network screen
 
 Select the network icon in the status row. Without NetworkManager the screen
@@ -233,9 +274,10 @@ compositor. See `nix/module.nix` for every option and its default.
   are timer driven and never block the UI or app launches.
 - **Control API:** `nl.jurrebuunk.HomeTheatre1` on the session bus provides
   `Launch(s)`, `Home()`, `OpenBluetooth()`, `OpenNetwork()`, `ToggleOverlay()`, `EnterIdle()`,
+  `SoundOutputs`, `SetSoundOutput(s)`, `SetVolume(i)`, `VolumeStep(i)`, `Notifications`,
   `Wake()`, the network calls (`NetworkInterfaces`, `WifiNetworks`,
   `WifiScan`, `WifiConnect(ss)`, `WifiConnectStatus`, `SetIpv4(sssss)`) and
-  the `State` / `Idle` / `OverlayOpen` properties. The VM tests use it, and it can also back
+  the `State` / `Idle` / `OverlayOpen` / `Volume` properties. The VM tests use it, and it can also back
   a compositor keybinding.
 
 ## Development
@@ -253,7 +295,7 @@ nix flake check                  # package + unit tests + both NixOS VM tests
 Screenshot views: `home`, `starting`, `closing`, `error-start`, `error-stop`,
 `bluetooth`, `pairing`, `bt-no-adapter`, `network-wifi`, `network-password`,
 `network-ethernet`, `idle`, `idle-image`, `overlay`, `overlay-bluetooth`,
-`overlay-network`, `overlay-close`. The README images in
+`overlay-network`, `overlay-sound`, `overlay-close`, `sound`, `notifications`, `volume`. The README images in
 `docs/screenshots/` are made this way (fonts via `FONTCONFIG_FILE` with STIX Two
 and IBM Plex Mono).
 

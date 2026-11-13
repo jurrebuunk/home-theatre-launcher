@@ -125,6 +125,8 @@ let
       clock = dropNulls b.clock;
       network = { inherit (b.network) scanDuration; };
       overlay = b.overlay;
+      notifications = b.notifications;
+      sound = b.sound // { pactl = "${pkgs.pulseaudio}/bin/pactl"; };
       idle = {
         inherit (b.idle) enable timeout showStatus;
         background = dropNulls {
@@ -327,6 +329,27 @@ in
         '';
         scanDuration = opt pos 10 "Seconds a Wi-Fi scan runs.";
       };
+      sound = {
+        enable = opt types.bool true "Sound screen, volume keys and the volume indicator (PipeWire).";
+        labels = opt (types.attrsOf types.str) { } ''
+          Names for outputs by sink name, e.g.
+          `{ "alsa_output.pci-0000_00_1f.3.hdmi-stereo" = "TV"; }`. HDMI outputs are called "TV" by default.
+        '';
+        hidden = opt (types.listOf types.str) [ ] "Hide outputs whose sink name contains any of these strings.";
+        step = opt pos 5 "Volume step (percent) for volume keys and Left/Right.";
+        maxVolume = opt (types.ints.between 1 150) 100 "Highest volume the launcher sets.";
+        volumeKeys = opt types.bool true "Handle remote/keyboard volume keys everywhere (also inside apps).";
+      };
+      notifications = {
+        enable = opt types.bool true ''
+          Notifications above everything (also over apps and the in-app menu, without dimming):
+          Bluetooth devices connecting, controller battery, Wi-Fi / Ethernet links, sound output changes.
+        '';
+        timeoutMs = opt pos 4000 "How long a notification stays (critical ones twice as long).";
+        batteryLow = opt (types.ints.between 0 100) 20 "Controller battery warning (shown once per discharge).";
+        batteryCritical = opt (types.ints.between 0 100) 10 "Critical controller battery (repeats).";
+        criticalRepeatMinutes = opt pos 5 "Repeat interval of the critical battery notification.";
+      };
       overlay = {
         enable = opt types.bool true ''
           In-app menu over a running app (Resume, Bluetooth, Network, Close app).
@@ -490,6 +513,10 @@ in
       alsa.enable = mkDefault true;
       pulse.enable = mkDefault true;
       wireplumber.enable = mkDefault true;
+      # The X11 bell module crashes PipeWire when Xwayland goes away; a TV has no bell.
+      extraConfig.pipewire."90-home-theatre-no-x11-bell" = {
+        "context.properties"."module.x11.bell" = false;
+      };
     };
 
     systemd.user.services.home-theatre-launcher = {

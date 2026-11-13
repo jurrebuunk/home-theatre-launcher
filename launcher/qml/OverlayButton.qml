@@ -7,11 +7,12 @@ Item {
     property string iconName
     property color iconTint: Theme.accent
     property string value
+    property string valueIcon
     signal activated()
 
     activeFocusOnTab: true
     width: parent ? parent.width : 0
-    height: Theme.px(96)
+    height: Theme.px(84)
     readonly property color fg: activeFocus ? Theme.background : Theme.text
 
     Rectangle {
@@ -38,15 +39,26 @@ Item {
         text: root.text
         color: root.fg
     }
-    Label {
+    Row {
         anchors.right: parent.right
         anchors.rightMargin: Theme.px(28)
         anchors.verticalCenter: parent.verticalCenter
-        visible: root.value !== ""
-        role: "value"
-        font.pixelSize: Theme.px(24)
-        text: root.value
-        color: root.activeFocus ? Theme.background : Theme.muted
+        spacing: Theme.px(26)
+        Icon {
+            visible: root.valueIcon !== ""
+            anchors.verticalCenter: parent.verticalCenter
+            name: root.valueIcon
+            size: Theme.px(30)
+            tint: root.activeFocus ? Theme.background : Theme.muted
+        }
+        Label {
+            visible: root.value !== ""
+            anchors.verticalCenter: parent.verticalCenter
+            role: "value"
+            font.pixelSize: Theme.px(24)
+            text: root.value
+            color: root.activeFocus ? Theme.background : Theme.muted
+        }
     }
     Keys.onPressed: (event) => {
         if (Theme.isSelect(event.key)) {

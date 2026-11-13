@@ -7,6 +7,7 @@ Item {
     property alias bluetoothItem: btItem
     signal openBluetooth()
     signal openNetwork()
+    signal openSound()
     signal downPressed()
 
     height: Theme.px(Theme.layout.statusRowHeight)
@@ -48,7 +49,7 @@ Item {
     StatusButton {
         id: btItem
         anchors.left: parent.left
-        KeyNavigation.right: netItem
+        KeyNavigation.right: soundItem.visible ? soundItem : netItem
         onActivated: root.openBluetooth()
         Icon {
             name: Bt.hasAdapter ? "bluetooth" : "bluetooth-off"
@@ -65,6 +66,22 @@ Item {
         }
     }
 
+    StatusButton {
+        id: soundItem
+        visible: Cfg.sound.enable
+        anchors.left: btItem.right
+        anchors.leftMargin: Theme.px(64)
+        KeyNavigation.left: btItem
+        KeyNavigation.right: netItem
+        onActivated: root.openSound()
+        Icon {
+            name: Sound.muted || !Sound.available ? "volume-off" : "volume"
+            size: root.iconSize
+            tint: soundItem.focused ? Theme.background : Theme.muted
+            anchors.verticalCenter: parent.verticalCenter
+        }
+    }
+
     Row {
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
@@ -72,7 +89,7 @@ Item {
 
         StatusButton {
             id: netItem
-            KeyNavigation.left: btItem
+            KeyNavigation.left: soundItem.visible ? soundItem : btItem
             onActivated: root.openNetwork()
             readonly property color tone: focused ? Theme.background
                 : Net.state === "online" ? Theme.muted

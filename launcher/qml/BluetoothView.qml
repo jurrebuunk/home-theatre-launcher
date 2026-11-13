@@ -284,6 +284,7 @@ FocusScope {
                     DeviceRow {
                         path: model.path; name: model.name; kind: model.kind
                         connected: model.connected; trusted: model.trusted; paired: true; busy: model.busy
+                        battery: model.battery
                         onUpPressed: index === 0 ? (root.compact ? root.focusHeader() : null) : root.focusRow(index - 1)
                         onDownPressed: root.focusRow(index + 1)
                         onForgetRequested: (p, n) => { root.forgetPath = p; root.forgetName = n; forgetCancel.forceActiveFocus() }
@@ -306,6 +307,7 @@ FocusScope {
                     DeviceRow {
                         path: model.path; name: model.name; kind: model.kind
                         connected: false; trusted: false; paired: false; busy: model.busy
+                        battery: model.battery
                         onUpPressed: Bt.paired.count + index === 0 && root.compact ? root.focusHeader()
                                    : root.focusRow(Bt.paired.count + index - 1)
                         onDownPressed: root.focusRow(Bt.paired.count + index + 1)

@@ -96,6 +96,14 @@ void Config::setDefaults()
     };
     m_clock = {{"format", "HH:mm"}, {"dateFormat", "dddd d MMMM"}, {"locale", "en_GB"}, {"timeZone", QString()}};
     m_network = {{"scanDuration", 10}};
+    m_sound = {
+        {"enable", true}, {"labels", QVariantMap()}, {"hidden", QStringList()}, {"step", 5},
+        {"maxVolume", 100}, {"volumeKeys", true}, {"pactl", QString()},
+    };
+    m_notifications = {
+        {"enable", true}, {"timeoutMs", 4000}, {"batteryLow", 20}, {"batteryCritical", 10},
+        {"criticalRepeatMinutes", 5},
+    };
     m_overlay = {
         {"enable", true}, {"gamepadCodes", QStringList{"BTN_MODE"}}, {"keyboardCodes", QStringList{"KEY_HOMEPAGE"}},
         {"dim", 0.5}, {"grabControllers", true},
@@ -180,6 +188,14 @@ bool Config::loadJson(const QByteArray &json)
     m_network = merged(m_network, behavior.value("network").toMap());
     m_idle = merged(m_idle, behavior.value("idle").toMap());
     m_overlay = merged(m_overlay, behavior.value("overlay").toMap());
+    m_sound = merged(m_sound, behavior.value("sound").toMap());
+    m_notifications = merged(m_notifications, behavior.value("notifications").toMap());
+    if (m_sound.value("step").toInt() <= 0 || m_sound.value("maxVolume").toInt() <= 0 || m_sound.value("maxVolume").toInt() > 150)
+        m_errors << QStringLiteral("behavior.sound: step must be > 0 and maxVolume in 1..150");
+    if (m_notifications.value("batteryCritical").toInt() > m_notifications.value("batteryLow").toInt())
+        m_errors << QStringLiteral("behavior.notifications: batteryCritical must be <= batteryLow");
+    if (m_notifications.value("timeoutMs").toInt() <= 0 || m_notifications.value("criticalRepeatMinutes").toInt() <= 0)
+        m_errors << QStringLiteral("behavior.notifications: timeoutMs and criticalRepeatMinutes must be > 0");
 
     // Validate appearance.
     static const QRegularExpression colorRe(QStringLiteral("^#[0-9a-fA-F]{6}$"));

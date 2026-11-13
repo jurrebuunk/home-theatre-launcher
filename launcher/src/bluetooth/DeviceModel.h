@@ -12,7 +12,7 @@ class DeviceModel : public QAbstractListModel
     Q_OBJECT
     Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
 public:
-    enum Roles { PathRole = Qt::UserRole + 1, NameRole, KindRole, ConnectedRole, TrustedRole, PairedRole, BusyRole };
+    enum Roles { PathRole = Qt::UserRole + 1, NameRole, KindRole, ConnectedRole, TrustedRole, PairedRole, BusyRole, BatteryRole };
 
     using Lookup = std::function<QVariantMap(const QString &path)>;
     explicit DeviceModel(Lookup lookup, QObject *parent = nullptr);

@@ -52,6 +52,7 @@ QtObject {
                  : Nm.wifiBars >= 3 ? "wifi" : Nm.wifiBars === 2 ? "wifi-2" : "wifi-1"
         return Net.state === "offline" && Net.reason === "nolink" ? "ethernet-off" : "ethernet"
     }
+    function soundIcon(kind) { return kind === "tv" ? "tv" : kind === "headphones" ? "headphones" : "speaker" }
     function wifiIcon(bars) { return bars >= 3 ? "wifi" : bars === 2 ? "wifi-2" : "wifi-1" }
     function deviceIcon(kind) {
         return ["gamepad", "keyboard", "mouse", "headphones", "speaker", "phone", "remote"].indexOf(kind) >= 0

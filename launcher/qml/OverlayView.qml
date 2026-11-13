@@ -4,7 +4,7 @@ import QtQuick
 // a dim layer; a side panel offers Resume, Bluetooth, Network and Close app.
 FocusScope {
     id: root
-    property string page: "main" // main | bluetooth | network | close
+    property string page: "main" // main | bluetooth | network | sound | close
     property int runtime: 0      // minutes the app has been running
 
     function open(p) {
@@ -142,7 +142,7 @@ FocusScope {
 
                 Column {
                     anchors.top: line2.bottom
-                    anchors.topMargin: Theme.px(28)
+                    anchors.topMargin: Theme.px(24)
                     width: parent.width
                     spacing: Theme.px(12)
                     OverlayButton {
@@ -163,14 +163,24 @@ FocusScope {
                         id: netButton
                         text: "Network"; iconName: Theme.networkIcon()
                         KeyNavigation.up: btButton
-                        KeyNavigation.down: closeButton
+                        KeyNavigation.down: soundButton.visible ? soundButton : closeButton
                         onActivated: root.go("network")
                     }
-                    Item { width: 1; height: Theme.px(20) }
+                    OverlayButton {
+                        id: soundButton
+                        visible: Cfg.sound.enable
+                        text: "Sound"; iconName: Sound.muted ? "volume-off" : "volume"
+                        valueIcon: Sound.available ? Theme.soundIcon(Sound.currentKind) : ""
+                        value: !Sound.available ? "" : Sound.muted ? "—" : String(Sound.volume)
+                        KeyNavigation.up: netButton
+                        KeyNavigation.down: closeButton
+                        onActivated: root.go("sound")
+                    }
+                    Item { width: 1; height: Theme.px(10) }
                     OverlayButton {
                         id: closeButton
                         text: "Close app"; iconName: "power"; iconTint: Theme.error
-                        KeyNavigation.up: netButton
+                        KeyNavigation.up: soundButton.visible ? soundButton : netButton
                         onActivated: root.go("close")
                     }
                 }
@@ -234,13 +244,20 @@ FocusScope {
             Loader {
                 id: subLoader
                 anchors.fill: parent
-                active: root.page === "bluetooth" || root.page === "network"
-                sourceComponent: root.page === "bluetooth" ? btPage : netPage
+                active: root.page === "bluetooth" || root.page === "network" || root.page === "sound"
+                sourceComponent: root.page === "bluetooth" ? btPage : root.page === "sound" ? soundPage : netPage
                 onLoaded: Qt.callLater(root.focusPage)
             }
             Component {
                 id: btPage
                 BluetoothView {
+                    compact: true
+                    onCloseRequested: root.go("main")
+                }
+            }
+            Component {
+                id: soundPage
+                SoundView {
                     compact: true
                     onCloseRequested: root.go("main")
                 }

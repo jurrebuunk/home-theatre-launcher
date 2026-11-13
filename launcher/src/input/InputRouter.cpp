@@ -59,6 +59,7 @@ InputRouter::InputRouter(const Config *config, QObject *parent)
     m_overlayGamepad = parseCombos(overlay.value("gamepadCodes").toStringList());
     m_overlayKeyboard = parseCombos(overlay.value("keyboardCodes").toStringList());
     m_grabControllers = overlay.value("grabControllers").toBool();
+    m_volumeKeys = config->sound().value("enable").toBool() && config->sound().value("volumeKeys").toBool();
 
     m_homeTimer.setSingleShot(true);
     m_homeTimer.setInterval(input.value("homeHoldMs").toInt());
@@ -221,7 +222,7 @@ void InputRouter::openDevice(const QString &path)
     const bool letters = libevdev_has_event_code(dev, EV_KEY, KEY_A) && libevdev_has_event_code(dev, EV_KEY, KEY_Z)
         && libevdev_has_event_code(dev, EV_KEY, KEY_ENTER);
     bool remote = false;
-    for (int code : {KEY_HOMEPAGE, KEY_BACK, KEY_OK, KEY_SELECT, KEY_UP, KEY_MENU})
+    for (int code : {KEY_HOMEPAGE, KEY_BACK, KEY_OK, KEY_SELECT, KEY_UP, KEY_MENU, KEY_VOLUMEUP})
         remote = remote || libevdev_has_event_code(dev, EV_KEY, code);
 
     auto *d = new Device;
@@ -297,6 +298,12 @@ void InputRouter::readDevice(const QString &path)
 void InputRouter::handleEvent(Device &d, int type, int code, int value)
 {
     if (type == EV_KEY) {
+        if (m_volumeKeys && value != 0 && (code == KEY_VOLUMEUP || code == KEY_VOLUMEDOWN || (code == KEY_MUTE && value == 1))) {
+            setLastDevice(d.glyphs);
+            Q_EMIT activity();
+            Q_EMIT volumeKey(code == KEY_VOLUMEUP ? 1 : code == KEY_VOLUMEDOWN ? -1 : 0);
+            return;
+        }
         if (value == 2)
             return; // autorepeat; we do our own for controllers
         const bool pressed = value == 1;

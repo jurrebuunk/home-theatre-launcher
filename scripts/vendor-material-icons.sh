@@ -25,6 +25,9 @@ declare -A ui=(
   [lock]=lock [eye]=visibility [eye-off]=visibility_off [plus]=add
   [backspace]=backspace [shift]=shift [space]=space_bar [globe]=language
   [play]=play_arrow [clock]=schedule
+  [volume]=volume_up [volume-off]=volume_off [minus]=remove [arrow-right]=arrow_forward
+  [arrow-down]=arrow_downward [link-off]=link_off [tv]=tv
+  [battery-high]=battery_horiz_075 [battery-mid]=battery_horiz_050 [battery-low]=battery_horiz_000
 )
 declare -A apps=(
   [stream]=smart_display [tv]=tv [android]=android [gamepad]=stadia_controller

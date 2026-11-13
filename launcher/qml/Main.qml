@@ -9,8 +9,14 @@ Window {
     color: overlayMode ? "transparent" : Theme.background
     title: "Home Theatre"
 
-    // "" (home), "bluetooth" or "network"
+    // "" (home), "bluetooth", "network" or "sound"
     property string panel: ""
+    // Notifications / volume drawn inside this window (windowed, screenshots)
+    // instead of on their own click-through surface.
+    property bool inlineIndicators: true
+    property alias indicatorWindow: indicatorWindow
+    readonly property bool fakeApp: debugView === "notifications" || debugView === "volume"
+                                    || (overlayMode && debugView.startsWith("overlay"))
     property string debugView: ""
     readonly property bool overlayMode: Overlay.open && Life.state === "running"
 
@@ -27,6 +33,7 @@ Window {
     }
     function openBluetooth() { openPanel("bluetooth") }
     function openNetwork() { openPanel("network") }
+    function openSound() { openPanel("sound") }
     function closePanel() {
         panel = ""
         Qt.callLater(restoreFocus)
@@ -47,6 +54,8 @@ Window {
             panel = "bluetooth"
         else if (debugView.startsWith("network"))
             panel = "network"
+        else if (debugView === "sound")
+            panel = "sound"
     }
 
     FocusScope {
@@ -61,6 +70,7 @@ Window {
             visible: window.panel === "" && !window.overlayMode
             onOpenBluetooth: window.openBluetooth()
             onOpenNetwork: window.openNetwork()
+            onOpenSound: window.openSound()
         }
 
         Loader {
@@ -68,13 +78,20 @@ Window {
             anchors.fill: parent
             active: window.panel !== ""
             visible: !window.overlayMode
-            sourceComponent: window.panel === "bluetooth" ? btComponent : netComponent
+            sourceComponent: window.panel === "bluetooth" ? btComponent
+                           : window.panel === "sound" ? soundComponent : netComponent
             onLoaded: Qt.callLater(() => { item.forceActiveFocus(); item.focusDefault() })
         }
         Component {
             id: btComponent
             BluetoothView {
                 forceNoAdapter: window.debugView === "bt-no-adapter"
+                onCloseRequested: window.closePanel()
+            }
+        }
+        Component {
+            id: soundComponent
+            SoundView {
                 onCloseRequested: window.closePanel()
             }
         }
@@ -88,7 +105,7 @@ Window {
 
         TransitionView {
             anchors.fill: parent
-            visible: opacity > 0 && !window.overlayMode
+            visible: opacity > 0 && !window.overlayMode && !window.fakeApp
             shown: Life.state === "launching" || Life.state === "closing" || Life.state === "running"
         }
 
@@ -105,7 +122,7 @@ Window {
         // Screenshots only: a stand-in for the running app behind the menu.
         Image {
             anchors.fill: parent
-            visible: window.overlayMode && window.debugView.startsWith("overlay")
+            visible: window.fakeApp
             source: visible ? "image://icon/background/mountains" : ""
             sourceSize: Qt.size(width, height)
         }
@@ -119,6 +136,11 @@ Window {
                 const sub = window.debugView.replace(/^overlay-?/, "")
                 item.open(sub === "" ? "main" : sub)
             }
+        }
+
+        Indicators {
+            anchors.fill: parent
+            visible: window.inlineIndicators
         }
 
         FatalConfigView {
@@ -140,6 +162,19 @@ Window {
                 else
                     window.closePanel()
             }
+        }
+    }
+
+    // Click-through layer-shell surface above everything (set up in C++).
+    Window {
+        id: indicatorWindow
+        visible: false
+        color: "transparent"
+        width: window.width
+        height: window.height
+        Indicators {
+            anchors.fill: parent
+            visible: !window.inlineIndicators
         }
     }
 }

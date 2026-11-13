@@ -18,6 +18,7 @@ namespace {
 const QString kBluez = QStringLiteral("org.bluez");
 const QString kAdapter = QStringLiteral("org.bluez.Adapter1");
 const QString kDevice = QStringLiteral("org.bluez.Device1");
+const QString kBattery = QStringLiteral("org.bluez.Battery1");
 const QString kAgentPath = QStringLiteral("/nl/jurrebuunk/HomeTheatre/agent");
 
 QDBusConnection bus() { return QDBusConnection::systemBus(); }
@@ -186,6 +187,10 @@ void BluetoothManager::onInterfacesAdded(const QDBusObjectPath &path, const Inte
     }
     if (interfaces.contains(kDevice))
         m_devices[p].insert(interfaces.value(kDevice));
+    if (interfaces.contains(kBattery)) {
+        m_devices[p].insert(QStringLiteral("Battery"), interfaces.value(kBattery).value(QStringLiteral("Percentage")).toInt());
+        Q_EMIT batteryChanged(p, m_devices[p].value(QStringLiteral("Battery")).toInt());
+    }
     rebuild();
 }
 
@@ -199,6 +204,8 @@ void BluetoothManager::onInterfacesRemoved(const QDBusObjectPath &path, const QS
     }
     if (interfaces.contains(kDevice))
         m_devices.remove(p);
+    else if (interfaces.contains(kBattery) && m_devices.contains(p))
+        m_devices[p].remove(QStringLiteral("Battery"));
     rebuild();
 }
 
@@ -206,6 +213,21 @@ void BluetoothManager::onPropertiesChanged(const QString &iface, const QVariantM
                                            const QStringList &invalidated, const QDBusMessage &msg)
 {
     const QString p = msg.path();
+    if (iface == kBattery && m_devices.contains(p) && changed.contains(QStringLiteral("Percentage"))) {
+        const int level = changed.value(QStringLiteral("Percentage")).toInt();
+        if (m_devices[p].value(QStringLiteral("Battery")) != level) {
+            m_devices[p].insert(QStringLiteral("Battery"), level);
+            Q_EMIT batteryChanged(p, level);
+            rebuild();
+        }
+        return;
+    }
+    if (iface == kDevice && m_devices.contains(p) && changed.contains(QStringLiteral("Connected"))
+        && changed.value(QStringLiteral("Connected")).toBool() != m_devices[p].value(QStringLiteral("Connected")).toBool()) {
+        const bool connected = changed.value(QStringLiteral("Connected")).toBool();
+        m_devices[p].insert(QStringLiteral("Connected"), connected);
+        Q_EMIT connectionChanged(p, connected);
+    }
     QVariantMap *target = nullptr;
     if (iface == kAdapter && m_adapterProps.contains(p))
         target = &m_adapterProps[p];
@@ -233,6 +255,22 @@ void BluetoothManager::onPropertiesChanged(const QString &iface, const QVariantM
     }
     if (relevant || !invalidated.isEmpty())
         rebuild();
+}
+
+QVariantMap BluetoothManager::deviceInfo(const QString &path) const
+{
+    const QVariantMap d = m_devices.value(path);
+    const QString name = deviceName(path);
+    return {{"name", name}, {"kind", DeviceModel::kindForIcon(d.value(QStringLiteral("Icon")).toString(), name)},
+            {"battery", d.value(QStringLiteral("Battery"), -1)}, {"connected", d.value(QStringLiteral("Connected")).toBool()}};
+}
+
+int BluetoothManager::batteryForAddress(const QString &address) const
+{
+    for (const QVariantMap &d : m_devices)
+        if (d.value(QStringLiteral("Address")).toString().compare(address, Qt::CaseInsensitive) == 0)
+            return d.value(QStringLiteral("Battery"), -1).toInt();
+    return -1;
 }
 
 void BluetoothManager::rebuild()
@@ -614,16 +652,19 @@ void BluetoothManager::populateDemo()
     m_adapters = {hci};
     m_adapterProps[hci] = {{"Powered", true}, {"Discovering", true}};
     auto add = [&](const QString &id, const QString &name, const QString &icon, bool paired, bool connected,
-                   bool trusted) {
-        m_devices[hci + QStringLiteral("/dev_") + id] = {{"Name", name},   {"Alias", name},           {"Icon", icon},
-                                                          {"Paired", paired}, {"Connected", connected}, {"Trusted", trusted},
-                                                          {"Adapter", hci}};
+                   bool trusted, int battery = -1) {
+        QVariantMap d{{"Name", name},           {"Alias", name},     {"Icon", icon},       {"Paired", paired},
+                      {"Connected", connected}, {"Trusted", trusted}, {"Adapter", hci},
+                      {"Address", QStringLiteral("00:11:22:33:44:%1").arg(id)}};
+        if (battery >= 0)
+            d.insert("Battery", battery);
+        m_devices[hci + QStringLiteral("/dev_") + id] = d;
     };
-    add("01", "Xbox Wireless Controller", "input-gaming", true, true, true);
-    add("02", "DualSense Wireless Controller", "input-gaming", true, true, true);
+    add("01", "Xbox Wireless Controller", "input-gaming", true, true, true, 80);
+    add("02", "DualSense Wireless Controller", "input-gaming", true, true, true, 15);
     add("03", "Media Remote", "input-keyboard", true, true, true);
-    add("04", "Living Room Soundbar", "audio-card", true, false, false);
-    add("05", "Over-ear Headphones", "audio-headphones", false, false, false);
+    add("04", "Living Room Soundbar", "audio-card", true, true, true);
+    add("05", "Over-ear Headphones", "audio-headphones", false, false, false, 64);
     add("06", "Compact Keyboard", "input-keyboard", false, false, false);
     // Keep the design's order rather than alphabetical for the demo.
     m_paired->sync({hci + "/dev_01", hci + "/dev_02", hci + "/dev_03", hci + "/dev_04"});

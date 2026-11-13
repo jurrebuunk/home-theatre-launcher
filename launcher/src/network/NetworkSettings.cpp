@@ -758,9 +758,20 @@ void NetworkSettings::applyObjects(const QMap<QString, QMap<QString, QVariantMap
     const QString type = objects.value(primary).value(kActive).value("Type").toString();
     m_primaryKind = type == QLatin1String("802-11-wireless") ? QStringLiteral("wifi") : QStringLiteral("ethernet");
     m_wifiBars = 0;
+    QString activeSsid;
     for (const WifiRow &r : m_rows)
-        if (r.active)
+        if (r.active) {
             m_wifiBars = WifiModel::bars(r.strength);
+            activeSsid = r.ssid;
+        }
+    if (m_wifiKnown && activeSsid != m_wifiSsid) {
+        if (!activeSsid.isEmpty())
+            Q_EMIT wifiLink(activeSsid, true);
+        else
+            Q_EMIT wifiLink(m_wifiSsid, false);
+    }
+    m_wifiKnown = true;
+    m_wifiSsid = activeSsid;
 
     // A connection being watched may already be up (signal raced the reply).
     if (!m_connectActive.isEmpty() && objects.contains(m_connectActive)) {

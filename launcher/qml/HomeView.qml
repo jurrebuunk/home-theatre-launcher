@@ -5,6 +5,7 @@ FocusScope {
     id: root
     signal openBluetooth()
     signal openNetwork()
+    signal openSound()
 
     // Configured columns, reduced to what fits the safe area (never overflow).
     readonly property int fittingColumns: Math.max(1, Math.floor((area.width + Theme.px(Theme.layout.gap))
@@ -41,6 +42,7 @@ FocusScope {
         anchors.rightMargin: Theme.px(Theme.layout.safeMargin)
         onOpenBluetooth: root.openBluetooth()
         onOpenNetwork: root.openNetwork()
+        onOpenSound: root.openSound()
         onDownPressed: root.focusTile(Life.lastIndex)
     }
 

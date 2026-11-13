@@ -8,6 +8,7 @@
     imports = [ self.nixosModules.default ];
 
     virtualisation.memorySize = 2048;
+    environment.systemPackages = [ pkgs.pulseaudio ]; # pactl for the sound test
     virtualisation.qemu.options = [ "-vga none" "-device virtio-gpu-pci" ];
 
     systemd.services.htl-dummy = {
@@ -176,6 +177,54 @@
         call("Home")
         wait_state("launcher")
         assert not overlay_open()
+
+    with subtest("sound: outputs, switching and volume via PipeWire"):
+        user("pactl load-module module-null-sink sink_name=htl_a sink_properties=device.description=Speakers")
+        user("pactl load-module module-null-sink sink_name=htl_b sink_properties=device.description=Headset")
+        user("pactl set-default-sink htl_a")
+        def outputs():
+            return user("busctl --user call nl.jurrebuunk.HomeTheatre /nl/jurrebuunk/HomeTheatre "
+                        "nl.jurrebuunk.HomeTheatre1 SoundOutputs")
+        deadline = time.time() + 30
+        while "*htl_a Speakers" not in outputs():
+            assert time.time() < deadline, outputs()
+            time.sleep(0.5)
+        call("SetSoundOutput", "s", "htl_b")
+        machine.wait_until_succeeds(
+            "runuser -u theatre -- env XDG_RUNTIME_DIR=/run/user/1000 pactl get-default-sink | grep -qx htl_b", timeout=15)
+        def notes():
+            return user("busctl --user call nl.jurrebuunk.HomeTheatre /nl/jurrebuunk/HomeTheatre "
+                        "nl.jurrebuunk.HomeTheatre1 Notifications")
+        deadline = time.time() + 10
+        while "Headset" not in notes():
+            assert time.time() < deadline, notes()
+            time.sleep(0.5)
+        call("SetVolume", "i", "42")
+        machine.wait_until_succeeds(
+            "runuser -u theatre -- env XDG_RUNTIME_DIR=/run/user/1000 pactl get-sink-volume htl_b | grep -q ' 42%'", timeout=15)
+        deadline = time.time() + 10
+        while user("busctl --user get-property nl.jurrebuunk.HomeTheatre /nl/jurrebuunk/HomeTheatre "
+                   "nl.jurrebuunk.HomeTheatre1 Volume").strip() != "i 42":
+            assert time.time() < deadline
+            time.sleep(0.5)
+        call("VolumeStep", "i", "1")
+        machine.wait_until_succeeds(
+            "runuser -u theatre -- env XDG_RUNTIME_DIR=/run/user/1000 pactl get-sink-volume htl_b | grep -q ' 47%'", timeout=15)
+
+    with subtest("notifications show over a running app and over the in-app menu"):
+        call("Launch", "s", "term")
+        wait_state("running")
+        call("ToggleOverlay")
+        call("SetSoundOutput", "s", "htl_a")
+        deadline = time.time() + 10
+        while "Speakers" not in notes():
+            assert time.time() < deadline, notes()
+            time.sleep(0.5)
+        machine.sleep(1)
+        machine.screenshot("notification-over-menu")
+        assert overlay_open()
+        call("Home")
+        wait_state("launcher")
 
     machine.screenshot("final")
   '';
