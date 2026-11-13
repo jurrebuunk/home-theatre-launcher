@@ -33,6 +33,8 @@ stdenv.mkDerivation {
     qt6.qtdeclarative
     qt6.qtsvg
     qt6.qtwayland
+    qt6.qtmultimedia
+    qt6.qtimageformats
     kdePackages.layer-shell-qt
     wayland
     wlr-protocols

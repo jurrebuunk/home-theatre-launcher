@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QLocale>
 #include <QObject>
 #include <QTimeZone>
 #include <QTimer>
@@ -12,11 +13,13 @@ class Clock : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(QString text READ text NOTIFY textChanged)
+    Q_PROPERTY(QString dateText READ dateText NOTIFY textChanged)
 
 public:
     explicit Clock(const Config *config, QObject *parent = nullptr);
     QString text() const { return m_text; }
-    void setFixed(const QString &text);
+    QString dateText() const { return m_dateText; }
+    void setFixed(const QString &text, const QString &dateText = {});
 
 Q_SIGNALS:
     void textChanged();
@@ -25,6 +28,9 @@ private:
     void tick();
 
     QString m_format;
+    QString m_dateFormat;
+    QLocale m_locale;
+    QString m_dateText;
     QTimeZone m_zone;
     QString m_text;
     bool m_seconds = false;

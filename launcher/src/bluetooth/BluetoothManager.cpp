@@ -2,6 +2,7 @@
 
 #include "BluezAgent.h"
 #include "Config.h"
+#include "dbus/DBusTypes.h"
 
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
@@ -12,11 +13,6 @@
 #include <QLoggingCategory>
 
 Q_LOGGING_CATEGORY(lcBt, "htl.bluetooth")
-
-using InterfaceMap = QMap<QString, QVariantMap>;
-using ObjectMap = QMap<QDBusObjectPath, InterfaceMap>;
-Q_DECLARE_METATYPE(InterfaceMap)
-Q_DECLARE_METATYPE(ObjectMap)
 
 namespace {
 const QString kBluez = QStringLiteral("org.bluez");
@@ -32,8 +28,7 @@ BluetoothManager::BluetoothManager(const Config *config, bool demo, QObject *par
     , m_config(config)
     , m_demo(demo)
 {
-    qDBusRegisterMetaType<InterfaceMap>();
-    qDBusRegisterMetaType<ObjectMap>();
+    DBusTypes::registerAll();
 
     const QVariantMap bt = config->bluetooth();
     m_scanDuration = bt.value("discoveryTimeout").toInt();

@@ -35,6 +35,7 @@
       checks.${system} = {
         inherit package;
         vm = pkgs.testers.runNixOSTest (import ./nix/tests/vm.nix { inherit self; });
+        vm-network = pkgs.testers.runNixOSTest (import ./nix/tests/network.nix { inherit self; });
       };
 
       devShells.${system}.default = pkgs.mkShell {

@@ -5,7 +5,8 @@ entirely through Nix: one persistent **labwc** compositor, a fullscreen
 **Qt 6 / QML** interface, and **systemd** supervising every app. You can
 launch any application you configure; Moonlight and Waydroid are only
 ready-made examples. The launcher also includes a full Bluetooth menu, a
-read-only internet indicator and a clock.
+Network screen (Ethernet details and Wi-Fi with an on-screen keyboard), an
+idle screen with a large clock, an internet indicator and a clock.
 
 ![Home](docs/screenshots/home.png)
 
@@ -33,6 +34,10 @@ Rendered by the app itself (`--screenshot`, demo data) at 1920×1080.
 | **Pairing**: confirm the passkey; trust is opt-in | No Bluetooth adapter |
 | ![Start failed](docs/screenshots/error-start.png) | ![Still closing](docs/screenshots/error-stop.png) |
 | Readable start error with Retry / Dismiss | Cleanup incomplete: Stop again forces it and launches stay blocked |
+| ![Wi-Fi](docs/screenshots/network-wifi.png) | ![Wi-Fi password](docs/screenshots/network-password.png) |
+| **Network → Wi-Fi**: power, timed scan, networks with signal / lock / connected | Password entry with the on-screen keyboard (A type, X delete, Menu connect) |
+| ![Ethernet](docs/screenshots/network-ethernet.png) | ![Idle](docs/screenshots/idle-image.png) |
+| **Network → Ethernet**: speed, reachability, Automatic / Manual IPv4 | **Idle screen** over an image (`builtin:mountains`) |
 
 ## Use it from a NixOS flake
 
@@ -82,6 +87,16 @@ Rendered by the app itself (`--screenshot`, demo data) at 1920×1080.
       url = "https://example.net/generate_204";
       expectStatus = 204;
     };
+    behavior.idle = {
+      timeout = 600;                      # seconds without input
+      background = {
+        type = "slideshow";               # color | image | slideshow | video
+        directory = "/srv/photos";        # re-read every time the idle screen starts
+        interval = 30;
+        fadeMs = 1500;
+      };
+    };
+    behavior.network.networkmanager = true; # editable Wi-Fi / Ethernet (see below)
   };
   virtualisation.waydroid.enable = true;  # only needed for the waydroid preset
 }
@@ -104,6 +119,41 @@ instead of failing on the TV.
 - A polkit rule that lets the user start and stop **only** the system units
   that apps declare in `systemUnits`. No sudo.
 - BlueZ, PipeWire with WirePlumber (Bluetooth audio), fonts, and graphics.
+
+### Idle screen
+
+After `behavior.idle.timeout` seconds without input on the launcher (never
+while an app runs), a large clock and date appear over the background. Any
+button, key or mouse movement wakes it; that first press is swallowed so it
+never also launches something.
+
+| `behavior.idle.background.type` | uses |
+|---|---|
+| `color` (default) | `color` (default: the page background) |
+| `image` | `image`: a path, or `builtin:mountains` (the landscape from the design) |
+| `slideshow` | `images` and/or `directory`, `interval`, `fadeMs` (cross-fade), `shuffle` |
+| `video` | `video` (path or URL, looped), `muted` |
+
+`fill` (`cover` / `contain`) and `dim` (0–1, darkens pictures behind the
+clock) apply to pictures and video. Set `behavior.idle.enable = false` to turn
+it off. The date line uses `behavior.clock.dateFormat` and `locale`.
+
+### Network screen
+
+Select the network icon in the status row. Without NetworkManager the screen
+is read-only: every Ethernet and Wi-Fi interface with its address, gateway,
+DNS and link speed, read from the kernel. With
+`behavior.network.networkmanager = true` the module enables NetworkManager
+and a polkit rule for the launcher user, and the screen can:
+
+- turn Wi-Fi on/off, scan, connect (password via the on-screen keyboard or a
+  physical keyboard), join hidden networks, disconnect and forget;
+- switch Ethernet between Automatic (DHCP) and Manual IPv4 (address/prefix,
+  gateway, DNS).
+
+A wrong password is reported as such and never saved. Switching an existing
+machine to NetworkManager can give it a different DHCP lease, so enable it
+when you can reach the machine another way.
 
 ### App options
 
@@ -156,8 +206,11 @@ compositor. See `nix/module.nix` for every option and its default.
   route, then DNS, then an HTTPS request with an expected status. The checks
   are timer driven and never block the UI or app launches.
 - **Control API:** `nl.jurrebuunk.HomeTheatre1` on the session bus provides
-  `Launch(s)`, `Home()`, `OpenBluetooth()` and the `State` property. The VM
-  test uses it, and it can also back a compositor keybinding.
+  `Launch(s)`, `Home()`, `OpenBluetooth()`, `OpenNetwork()`, `EnterIdle()`,
+  `Wake()`, the network calls (`NetworkInterfaces`, `WifiNetworks`,
+  `WifiScan`, `WifiConnect(ss)`, `WifiConnectStatus`, `SetIpv4(sssss)`) and
+  the `State` / `Idle` properties. The VM tests use it, and it can also back
+  a compositor keybinding.
 
 ## Development
 
@@ -168,13 +221,19 @@ ninja -C launcher/build && (cd launcher/build && ctest)
 
 nix run .#demo                   # windowed demo: fake apps, Bluetooth and network
 ./launcher/build/home-theatre-launcher --screenshot bluetooth:/tmp/bt.png [--glyphs playstation]
-nix flake check                  # package + unit tests + NixOS VM integration test
+nix flake check                  # package + unit tests + both NixOS VM tests
 ```
 
 Screenshot views: `home`, `starting`, `closing`, `error-start`, `error-stop`,
-`bluetooth`, `pairing`, `bt-no-adapter`. The README images in
+`bluetooth`, `pairing`, `bt-no-adapter`, `network-wifi`, `network-password`,
+`network-ethernet`, `idle`, `idle-image`. The README images in
 `docs/screenshots/` are made this way (fonts via `FONTCONFIG_FILE` with STIX Two
 and IBM Plex Mono).
+
+The `vm-network` check runs the Network screen against a real NetworkManager
+and a simulated Wi-Fi access point (`mac80211_hwsim` + hostapd): scanning, a
+rejected wrong password, connecting, manual/automatic IPv4, and the idle
+timer.
 
 ## Verify on the real machine
 

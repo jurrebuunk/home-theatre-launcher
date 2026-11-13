@@ -1,9 +1,11 @@
 import QtQuick
 
-// Left-column control in the Bluetooth view: surface box, focus fill.
+// Left-column control in the Bluetooth / Network views: surface box, focus
+// fill; `selected` marks the current choice with an accent border.
 Item {
     id: root
     property string iconName
+    property bool selected: false
     default property alias content: slot.data
     signal activated()
 
@@ -15,7 +17,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         color: root.activeFocus ? Theme.accent : Theme.surface
-        border.color: Theme.border
+        border.color: root.selected ? Theme.focus : Theme.border
         border.width: root.activeFocus ? 0 : Theme.borderWidth
     }
     FocusFrame {}

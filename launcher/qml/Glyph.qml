@@ -1,6 +1,6 @@
 import QtQuick
 
-// Button prompt for an action ("select", "back", "home") on the last-used
+// Button prompt for an action ("select", "back", "home", "delete", "menu") on the last-used
 // device: real Xbox / PlayStation glyphs, key caps for keyboard and remote.
 Item {
     id: root
@@ -17,22 +17,29 @@ Item {
         if (device === "xbox") {
             if (gamepadAction === "select") return color ? "xbox/xbox_button_color_a" : "xbox/xbox_button_a"
             if (gamepadAction === "back") return color ? "xbox/xbox_button_color_b" : "xbox/xbox_button_b"
+            if (gamepadAction === "delete") return color ? "xbox/xbox_button_color_x" : "xbox/xbox_button_x"
+            if (gamepadAction === "menu") return "xbox/xbox_button_menu"
             return "xbox/xbox_guide"
         }
         if (device === "playstation") {
             if (gamepadAction === "select") return color ? "playstation/playstation_button_color_cross" : "playstation/playstation_button_cross"
             if (gamepadAction === "back") return color ? "playstation/playstation_button_color_circle" : "playstation/playstation_button_circle"
+            if (gamepadAction === "delete") return color ? "playstation/playstation_button_color_square" : "playstation/playstation_button_square"
+            if (gamepadAction === "menu") return "playstation/playstation5_button_options"
             return "" // no PS-button glyph in the pack: in-style home icon
         }
         return ""
     }
     readonly property string keyText: {
         if (device === "keyboard")
-            return action === "select" ? "Enter" : action === "back" ? "Esc" : "Home"
+            return ({ select: "Enter", back: "Esc", home: "Home", delete: "Bksp", menu: "Ctrl+Enter" })[action] || ""
         if (device === "remote")
-            return action === "select" ? "OK" : action === "back" ? "Back" : "Home"
+            return ({ select: "OK", back: "Back", home: "Home" })[action] || ""
         return ""
     }
+    // Remotes have no Delete / Menu buttons: the on-screen keys do that.
+    readonly property bool available: glyphFile !== "" || keyText !== ""
+                                      || (device === "playstation" && gamepadAction === "home")
 
     implicitWidth: keyText !== "" ? keyCap.width : size
     implicitHeight: size

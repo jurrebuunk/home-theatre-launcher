@@ -45,6 +45,14 @@ QtObject {
             return "image://icon/builtin/" + path.substring(8) + "?c=" + hex(c)
         return "image://icon/file" + path + "?c=" + hex(c)
     }
+    // Status icon for the primary connection: Wi-Fi bars or Ethernet.
+    function networkIcon() {
+        if (Nm.primaryKind === "wifi")
+            return Net.state === "offline" && Net.reason === "nolink" ? "wifi-off"
+                 : Nm.wifiBars >= 3 ? "wifi" : Nm.wifiBars === 2 ? "wifi-2" : "wifi-1"
+        return Net.state === "offline" && Net.reason === "nolink" ? "ethernet-off" : "ethernet"
+    }
+    function wifiIcon(bars) { return bars >= 3 ? "wifi" : bars === 2 ? "wifi-2" : "wifi-1" }
     function deviceIcon(kind) {
         return ["gamepad", "keyboard", "mouse", "headphones", "speaker", "phone", "remote"].indexOf(kind) >= 0
             ? kind : "bluetooth"

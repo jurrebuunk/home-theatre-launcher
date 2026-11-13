@@ -60,6 +60,8 @@ void WindowController::injectNavigation(int action, int selectKey, int backKey)
     case InputRouter::Right: key = Qt::Key_Right; break;
     case InputRouter::Select: key = selectKey; break;
     case InputRouter::Back: key = backKey; break;
+    case InputRouter::Delete: key = Qt::Key_Delete; break;
+    case InputRouter::Menu: key = Qt::Key_Menu; break;
     default: return;
     }
     QKeyEvent press(QEvent::KeyPress, key, Qt::NoModifier);

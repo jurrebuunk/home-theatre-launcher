@@ -103,6 +103,9 @@ let
            else app.icon;
   };
 
+  idleImage = img: if builtins.isPath img then "${img}" else img;
+  idleBg = b.idle.background;
+
   configJson = pkgs.writeText "home-theatre-launcher.json" (builtins.toJSON {
     version = 1;
     apps = map appJson cfg.apps;
@@ -120,6 +123,16 @@ let
       bluetooth = dropNulls b.bluetooth;
       internet = dropNulls b.internet;
       clock = dropNulls b.clock;
+      network = { inherit (b.network) scanDuration; };
+      idle = {
+        inherit (b.idle) enable timeout showStatus;
+        background = dropNulls {
+          inherit (idleBg) type color directory interval fadeMs shuffle muted fill dim;
+          image = if idleBg.image == null then null else idleImage idleBg.image;
+          images = map idleImage idleBg.images;
+          video = if idleBg.video == null then null else idleImage idleBg.video;
+        };
+      };
     };
   });
 
@@ -242,6 +255,8 @@ in
           clock = opt pos 40 "Clock.";
           value = opt pos 20 "Technical values.";
           code = opt pos 96 "Pairing passkey.";
+          idleClock = opt pos 288 "Idle screen clock.";
+          idleDate = opt pos 52 "Idle screen date.";
         };
       };
       uiScale = mkOption {
@@ -302,8 +317,58 @@ in
         interval = opt pos 30 "Seconds between checks while online.";
         offlineInterval = opt pos 5 "Seconds between checks while offline.";
       };
+      network = {
+        networkmanager = opt types.bool false ''
+          Manage Ethernet and Wi-Fi from the Network screen through NetworkManager
+          (enables `networking.networkmanager` and lets the launcher user change
+          connections). Without it the screen shows the interfaces read-only.
+          Switching an existing host to NetworkManager can change its DHCP lease.
+        '';
+        scanDuration = opt pos 10 "Seconds a Wi-Fi scan runs.";
+      };
+      idle = {
+        enable = opt types.bool true "Show the idle screen (clock over a background) after `timeout`.";
+        timeout = opt pos 300 "Seconds without input on the launcher before the idle screen appears.";
+        showStatus = opt types.bool true "Bluetooth / network icons in the top-right corner.";
+        background = {
+          type = opt (types.enum [ "color" "image" "slideshow" "video" ]) "color" "Idle background.";
+          color = opt (types.nullOr color) null "Background colour (default: appearance.colors.background).";
+          image = mkOption {
+            type = types.nullOr (types.either types.path (types.strMatching "^(/.*|builtin:[a-z]+)$"));
+            default = null;
+            example = "builtin:mountains";
+            description = "Picture for `type = \"image\"`: a path, or `builtin:mountains` (the design's landscape).";
+          };
+          images = mkOption {
+            type = types.listOf (types.either types.path (types.strMatching "^(/.*|builtin:[a-z]+)$"));
+            default = [ ];
+            description = "Pictures for `type = \"slideshow\"` (shown before those in `directory`).";
+          };
+          directory = opt (types.nullOr types.str) null ''
+            Directory with pictures (jpg, png, webp, …) for the slideshow, read each
+            time the idle screen starts. Must be readable by the launcher user.
+          '';
+          interval = opt pos 30 "Seconds per slideshow picture.";
+          fadeMs = opt nonneg 1500 "Cross-fade between pictures.";
+          shuffle = opt types.bool false "Shuffle the slideshow.";
+          video = mkOption {
+            type = types.nullOr (types.either types.path types.str);
+            default = null;
+            description = "Looping video for `type = \"video\"` (path or URL).";
+          };
+          muted = opt types.bool true "Play the video without sound.";
+          fill = opt (types.enum [ "cover" "contain" ]) "cover" "Crop to fill the screen, or fit inside it.";
+          dim = mkOption {
+            type = types.addCheck types.number (x: x >= 0 && x <= 1) // { description = "number in [0, 1]"; };
+            default = 0.25;
+            description = "Darkens pictures/video behind the clock (0 = none).";
+          };
+        };
+      };
       clock = {
         format = opt types.str "HH:mm" "Qt date/time format.";
+        dateFormat = opt types.str "dddd d MMMM" "Qt date format of the idle screen's date line.";
+        locale = opt types.str "en_GB" "Locale for day and month names.";
         timeZone = opt (types.nullOr types.str) null "IANA time zone (default: system).";
       };
       compositor = {
@@ -353,7 +418,8 @@ in
     security.polkit.enable = true;
     services.dbus.enable = true;
 
-    security.polkit.extraConfig = mkIf (allSystemUnits != [ ]) ''
+    security.polkit.extraConfig = lib.mkMerge [
+      (mkIf (allSystemUnits != [ ]) ''
       // home-theatre-launcher: start/stop only the system units its apps declare.
       polkit.addRule(function (action, subject) {
         var units = ${builtins.toJSON allSystemUnits};
@@ -364,7 +430,24 @@ in
           return polkit.Result.YES;
         }
       });
-    '';
+      '')
+      (mkIf b.network.networkmanager ''
+      // home-theatre-launcher: the Network screen may scan, toggle Wi-Fi and edit connections.
+      polkit.addRule(function (action, subject) {
+        var allowed = [
+          "org.freedesktop.NetworkManager.network-control",
+          "org.freedesktop.NetworkManager.enable-disable-wifi",
+          "org.freedesktop.NetworkManager.wifi.scan",
+          "org.freedesktop.NetworkManager.settings.modify.system",
+          "org.freedesktop.NetworkManager.settings.modify.own"
+        ];
+        if (subject.user == ${builtins.toJSON cfg.user} && allowed.indexOf(action.id) >= 0) {
+          return polkit.Result.YES;
+        }
+      });
+      '')
+    ];
+    networking.networkmanager.enable = mkIf b.network.networkmanager true;
 
     # Keep BlueZ running (and the menu usable) even before an adapter is attached.
     boot.kernelModules = lib.optional b.bluetooth.enable "bluetooth";
@@ -400,7 +483,8 @@ in
         ExecStart = "${cfg.package}/bin/home-theatre-launcher --config /etc/home-theatre-launcher/config.json";
         Restart = "always";
         RestartSec = 1;
-        MemoryMax = "512M";
+        # Video decoding for the idle screen needs more headroom.
+        MemoryMax = if b.idle.background.type == "video" then "1G" else "512M";
       };
     };
 

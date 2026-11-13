@@ -52,6 +52,7 @@ class Config : public QObject
     Q_PROPERTY(QVariantMap fonts READ fonts CONSTANT)
     Q_PROPERTY(QVariantMap layout READ layout CONSTANT)
     Q_PROPERTY(QVariantMap input READ input CONSTANT)
+    Q_PROPERTY(QVariantMap idle READ idle CONSTANT)
     Q_PROPERTY(QList<int> selectKeys READ selectKeys CONSTANT)
     Q_PROPERTY(QList<int> backKeys READ backKeys CONSTANT)
     Q_PROPERTY(QStringList errors READ errors CONSTANT)
@@ -78,6 +79,8 @@ public:
     QVariantMap bluetooth() const { return m_bluetooth; }
     QVariantMap internet() const { return m_internet; }
     QVariantMap clock() const { return m_clock; }
+    QVariantMap network() const { return m_network; }
+    QVariantMap idle() const { return m_idle; }
     QList<int> selectKeys() const { return m_selectKeys; }
     QList<int> backKeys() const { return m_backKeys; }
     QStringList errors() const { return m_errors; }
@@ -88,9 +91,10 @@ public:
 private:
     void setDefaults();
     void resolveKeys();
+    void validateIdle();
 
     QList<AppSpec> m_apps;
-    QVariantMap m_colors, m_fonts, m_layout, m_input, m_bluetooth, m_internet, m_clock;
+    QVariantMap m_colors, m_fonts, m_layout, m_input, m_bluetooth, m_internet, m_clock, m_network, m_idle;
     QList<int> m_selectKeys, m_backKeys;
     QStringList m_errors;
 };

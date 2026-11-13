@@ -66,7 +66,8 @@ void Config::setDefaults()
         {"serif", "STIX Two Text"},
         {"mono", "IBM Plex Mono"},
         {"sizes", QVariantMap{{"display", 56}, {"title", 44}, {"body", 28}, {"supporting", 24},
-                              {"clock", 40}, {"value", 20}, {"code", 96}}},
+                              {"clock", 40}, {"value", 20}, {"code", 96}, {"idleClock", 288},
+                              {"idleDate", 52}}},
     };
     m_layout = {
         {"uiScale", 1.0}, {"safeMargin", 96}, {"safeMarginVertical", 56}, {"statusRowHeight", 88},
@@ -93,7 +94,15 @@ void Config::setDefaults()
         {"expectStatus", 204}, {"dnsHost", QString()}, {"timeout", 5},
         {"interval", 30}, {"offlineInterval", 5},
     };
-    m_clock = {{"format", "HH:mm"}, {"timeZone", QString()}};
+    m_clock = {{"format", "HH:mm"}, {"dateFormat", "dddd d MMMM"}, {"locale", "en_GB"}, {"timeZone", QString()}};
+    m_network = {{"scanDuration", 10}};
+    m_idle = {
+        {"enable", true}, {"timeout", 300}, {"showStatus", true},
+        {"background", QVariantMap{{"type", "color"}, {"color", QString()}, {"image", QString()},
+                                   {"images", QStringList()}, {"directory", QString()}, {"interval", 30},
+                                   {"fadeMs", 1500}, {"shuffle", false}, {"video", QString()}, {"muted", true},
+                                   {"fill", "cover"}, {"dim", 0.25}}},
+    };
 }
 
 int Config::qtKeyFromName(const QString &name)
@@ -164,6 +173,8 @@ bool Config::loadJson(const QByteArray &json)
     m_bluetooth = merged(m_bluetooth, behavior.value("bluetooth").toMap());
     m_internet = merged(m_internet, behavior.value("internet").toMap());
     m_clock = merged(m_clock, behavior.value("clock").toMap());
+    m_network = merged(m_network, behavior.value("network").toMap());
+    m_idle = merged(m_idle, behavior.value("idle").toMap());
 
     // Validate appearance.
     static const QRegularExpression colorRe(QStringLiteral("^#[0-9a-fA-F]{6}$"));
@@ -189,6 +200,10 @@ bool Config::loadJson(const QByteArray &json)
         m_errors << QStringLiteral("appearance.uiScale must be in (0, 4]");
     if (!QStringList{"left", "center"}.contains(m_layout.value("alignment").toString()))
         m_errors << QStringLiteral("appearance.alignment must be left or center");
+
+    validateIdle();
+    if (m_network.value("scanDuration").toInt() <= 0)
+        m_errors << QStringLiteral("behavior.network.scanDuration must be > 0");
 
     // Apps.
     m_apps.clear();
@@ -256,6 +271,57 @@ bool Config::loadJson(const QByteArray &json)
 
     resolveKeys();
     return m_errors.isEmpty();
+}
+
+void Config::validateIdle()
+{
+    static const QRegularExpression colorRe(QStringLiteral("^#[0-9a-fA-F]{6}$"));
+    if (m_idle.value("timeout").toInt() <= 0)
+        m_errors << QStringLiteral("behavior.idle.timeout must be > 0");
+    QVariantMap bg = m_idle.value("background").toMap();
+    const QString type = bg.value("type").toString();
+    if (!QStringList{"color", "image", "slideshow", "video"}.contains(type))
+        m_errors << QStringLiteral("behavior.idle.background.type must be color, image, slideshow or video");
+    const QString color = bg.value("color").toString();
+    if (!color.isEmpty() && !colorRe.match(color).hasMatch())
+        m_errors << QStringLiteral("behavior.idle.background.color: invalid colour '%1'").arg(color);
+    if (!QStringList{"cover", "contain"}.contains(bg.value("fill").toString()))
+        m_errors << QStringLiteral("behavior.idle.background.fill must be cover or contain");
+    const double dim = bg.value("dim").toDouble();
+    if (dim < 0 || dim > 1)
+        m_errors << QStringLiteral("behavior.idle.background.dim must be in [0, 1]");
+    if (bg.value("interval").toInt() <= 0 || bg.value("fadeMs").toInt() < 0)
+        m_errors << QStringLiteral("behavior.idle.background: interval must be > 0 and fadeMs >= 0");
+
+    auto checkImage = [this](const QString &where, const QString &path) {
+        if (path.startsWith(QLatin1String("builtin:"))) {
+            if (!QFileInfo::exists(QStringLiteral(":/backgrounds/%1.svg").arg(path.mid(8))))
+                m_errors << QStringLiteral("%1: unknown builtin background '%2'").arg(where, path);
+        } else if (!path.startsWith(QLatin1Char('/'))) {
+            m_errors << QStringLiteral("%1: '%2' must be an absolute path or builtin:<name>").arg(where, path);
+        }
+    };
+    if (type == QLatin1String("image")) {
+        if (bg.value("image").toString().isEmpty())
+            m_errors << QStringLiteral("behavior.idle.background.image is required for type image");
+        else
+            checkImage(QStringLiteral("behavior.idle.background.image"), bg.value("image").toString());
+    } else if (type == QLatin1String("slideshow")) {
+        const QStringList images = bg.value("images").toStringList();
+        const QString dir = bg.value("directory").toString();
+        if (images.isEmpty() && dir.isEmpty())
+            m_errors << QStringLiteral("behavior.idle.background: a slideshow needs images or a directory");
+        for (const QString &i : images)
+            checkImage(QStringLiteral("behavior.idle.background.images"), i);
+        if (!dir.isEmpty() && !dir.startsWith(QLatin1Char('/')))
+            m_errors << QStringLiteral("behavior.idle.background.directory must be an absolute path");
+    } else if (type == QLatin1String("video")) {
+        const QString video = bg.value("video").toString();
+        if (video.isEmpty())
+            m_errors << QStringLiteral("behavior.idle.background.video is required for type video");
+        else if (!video.startsWith(QLatin1Char('/')) && !video.contains(QLatin1String("://")))
+            m_errors << QStringLiteral("behavior.idle.background.video must be an absolute path or URL");
+    }
 }
 
 void Config::loadDemoApps()

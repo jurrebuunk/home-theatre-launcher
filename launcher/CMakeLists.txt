@@ -7,6 +7,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(HTL_BUILD_TESTS "Build unit tests" ON)
 
 find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Quick DBus Network Svg Test)
+# Idle-screen video (QML import only; also silences the plugin-link warning).
+find_package(Qt6 6.8 REQUIRED COMPONENTS Multimedia)
 find_package(LayerShellQt REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(WAYLAND REQUIRED IMPORTED_TARGET wayland-client)
@@ -48,6 +50,10 @@ qt_add_library(htl_core STATIC
     src/bluetooth/BluezAgent.h
     src/bluetooth/DeviceModel.cpp src/bluetooth/DeviceModel.h
     src/status/NetworkStatus.cpp src/status/NetworkStatus.h
+    src/network/NetworkSettings.cpp src/network/NetworkSettings.h
+    src/network/WifiModel.cpp src/network/WifiModel.h
+    src/idle/IdleMonitor.cpp src/idle/IdleMonitor.h
+    src/dbus/DBusTypes.cpp src/dbus/DBusTypes.h
     src/status/Clock.cpp src/status/Clock.h
     src/ui/IconProvider.cpp src/ui/IconProvider.h
     src/ui/WindowController.cpp src/ui/WindowController.h
@@ -96,10 +102,20 @@ qt_add_qml_module(home-theatre-launcher
         qml/DigitEntry.qml
         qml/NoAdapterView.qml
         qml/FatalConfigView.qml
+        qml/StatusIcons.qml
+        qml/NetworkView.qml
+        qml/NetworkRow.qml
+        qml/EthernetDetails.qml
+        qml/Segmented.qml
+        qml/TextEntry.qml
+        qml/KeyButton.qml
+        qml/IdleView.qml
+        qml/Slideshow.qml
+        qml/IdleVideo.qml
 )
 
-# Icons live at :/icons, :/apps and :/glyphs.
-foreach(dir icons apps)
+# Icons live at :/icons, :/apps, :/backgrounds and :/glyphs.
+foreach(dir icons apps backgrounds)
     file(GLOB files RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/assets/${dir}" "assets/${dir}/*.svg")
     set(full "")
     foreach(f ${files})
@@ -120,7 +136,7 @@ install(TARGETS home-theatre-launcher RUNTIME DESTINATION bin)
 
 if(HTL_BUILD_TESTS)
     enable_testing()
-    foreach(t tst_config tst_lifecycle tst_input tst_network)
+    foreach(t tst_config tst_lifecycle tst_input tst_network tst_idle)
         qt_add_executable(${t} tests/${t}.cpp)
         target_link_libraries(${t} PRIVATE htl_core Qt6::Test)
         add_test(NAME ${t} COMMAND ${t})

@@ -1,11 +1,13 @@
 #include "Config.h"
 #include "ControlService.h"
 #include "bluetooth/BluetoothManager.h"
+#include "idle/IdleMonitor.h"
 #include "input/InputRouter.h"
 #include "lifecycle/BusNameWatcher.h"
 #include "lifecycle/Fakes.h"
 #include "lifecycle/LifecycleController.h"
 #include "lifecycle/SystemdBackend.h"
+#include "network/NetworkSettings.h"
 #include "status/Clock.h"
 #include "status/NetworkStatus.h"
 #include "ui/IconProvider.h"
@@ -58,7 +60,9 @@ int main(int argc, char *argv[])
     QCommandLineOption demoOpt(QStringLiteral("demo"), QStringLiteral("Fake apps, Bluetooth and network (development)."));
     QCommandLineOption shotOpt(QStringLiteral("screenshot"),
                                QStringLiteral("Render a view (home, starting, closing, error-start, error-stop, bluetooth, "
-                                              "pairing, bt-no-adapter) to <file> and exit. Implies --demo."),
+                                              "pairing, bt-no-adapter, network-wifi, network-password, "
+                                              "network-ethernet, idle, idle-image) to <file> and exit. "
+                                              "Implies --demo."),
                                QStringLiteral("view:file"));
     QCommandLineOption glyphsOpt(QStringLiteral("glyphs"),
                                  QStringLiteral("Initial button prompts: xbox, playstation, keyboard or remote."),
@@ -105,9 +109,11 @@ int main(int argc, char *argv[])
     LifecycleController life(&config, units, windows, names);
     BluetoothManager bluetooth(&config, demo);
     NetworkStatus network(&config);
+    NetworkSettings networkSettings(&config, demo);
     Clock clock(&config);
     InputRouter input(&config);
-    ControlService control(&life);
+    IdleMonitor idle(&config);
+    ControlService control(&life, &networkSettings, &idle);
     if (parser.isSet(glyphsOpt))
         input.setLastDevice(parser.value(glyphsOpt));
 
@@ -118,6 +124,8 @@ int main(int argc, char *argv[])
     ctx->setContextProperty(QStringLiteral("Life"), &life);
     ctx->setContextProperty(QStringLiteral("Bt"), &bluetooth);
     ctx->setContextProperty(QStringLiteral("Net"), &network);
+    ctx->setContextProperty(QStringLiteral("Nm"), &networkSettings);
+    ctx->setContextProperty(QStringLiteral("Idle"), &idle);
     ctx->setContextProperty(QStringLiteral("Clock"), &clock);
     ctx->setContextProperty(QStringLiteral("Input"), &input);
     ctx->setContextProperty(QStringLiteral("Control"), &control);
@@ -131,7 +139,7 @@ int main(int argc, char *argv[])
     if (!shot.isEmpty()) {
         const QString view = shot.section(QLatin1Char(':'), 0, 0);
         const QString file = shot.section(QLatin1Char(':'), 1);
-        clock.setFixed(QStringLiteral("20:41"));
+        clock.setFixed(QStringLiteral("20:41"), QStringLiteral("Friday 13 November"));
         network.setDemo(QStringLiteral("online"), QString());
         if (view == QLatin1String("starting"))
             life.debugShow(QStringLiteral("launching"), QStringLiteral("moonlight"), {});
@@ -145,6 +153,15 @@ int main(int argc, char *argv[])
             window->setProperty("debugView", view);
         if (view == QLatin1String("pairing"))
             bluetooth.demoShowPairing();
+        if (view.startsWith(QLatin1String("network"))) {
+            networkSettings.demoShow(view);
+            window->setProperty("debugView", view);
+        }
+        if (view.startsWith(QLatin1String("idle"))) {
+            if (view == QLatin1String("idle-image"))
+                idle.setBackground({{"type", "image"}, {"image", "builtin:mountains"}, {"dim", 0.0}});
+            idle.enter();
+        }
         window->show();
         QTimer::singleShot(1200, &app, [window, file] {
             const QImage img = window->grabWindow();
@@ -166,6 +183,17 @@ int main(int argc, char *argv[])
     QObject::connect(&input, &InputRouter::homeRequested, &life, &LifecycleController::home);
     QObject::connect(&control, &ControlService::openBluetoothRequested, window,
                      [window] { QMetaObject::invokeMethod(window, "openBluetooth"); });
+    QObject::connect(&control, &ControlService::openNetworkRequested, window,
+                     [window] { QMetaObject::invokeMethod(window, "openNetwork"); });
+
+    // Idle screen: only over the launcher itself; any input (window or evdev) wakes it.
+    window->installEventFilter(&idle);
+    QObject::connect(&input, &InputRouter::activity, &idle, &IdleMonitor::activity);
+    QObject::connect(&input, &InputRouter::homeRequested, &idle, &IdleMonitor::activity);
+    QObject::connect(&bluetooth, &BluetoothManager::requestChanged, &idle, &IdleMonitor::activity);
+    auto inhibit = [&] { idle.setInhibited(life.state() != LifecycleController::State::Launcher); };
+    QObject::connect(&life, &LifecycleController::changed, &idle, inhibit);
+    inhibit();
 
     input.start();
     if (!demo) {

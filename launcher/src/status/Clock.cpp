@@ -9,6 +9,8 @@ Clock::Clock(const Config *config, QObject *parent)
 {
     const QVariantMap c = config->clock();
     m_format = c.value("format").toString();
+    m_dateFormat = c.value("dateFormat").toString();
+    m_locale = QLocale(c.value("locale").toString());
     const QString tz = c.value("timeZone").toString();
     m_zone = tz.isEmpty() ? QTimeZone::systemTimeZone() : QTimeZone(tz.toUtf8());
     if (!m_zone.isValid())
@@ -20,11 +22,12 @@ Clock::Clock(const Config *config, QObject *parent)
     tick();
 }
 
-void Clock::setFixed(const QString &text)
+void Clock::setFixed(const QString &text, const QString &dateText)
 {
     m_fixed = true;
     m_timer.stop();
     m_text = text;
+    m_dateText = dateText;
     Q_EMIT textChanged();
 }
 
@@ -34,8 +37,10 @@ void Clock::tick()
         return;
     const QDateTime now = QDateTime::currentDateTime().toTimeZone(m_zone);
     const QString text = now.toString(m_format);
-    if (text != m_text) {
+    const QString date = m_locale.toString(now, m_dateFormat);
+    if (text != m_text || date != m_dateText) {
         m_text = text;
+        m_dateText = date;
         Q_EMIT textChanged();
     }
     const int ms = now.time().msec();

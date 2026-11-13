@@ -8,7 +8,8 @@ Window {
     color: Theme.background
     title: "Home Theatre"
 
-    property bool bluetoothOpen: false
+    // "" (home), "bluetooth" or "network"
+    property string panel: ""
     property string debugView: ""
 
     onHeightChanged: Theme.screenHeight = height
@@ -17,27 +18,31 @@ Window {
         Qt.callLater(restoreFocus)
     }
 
-    function openBluetooth() {
+    function openPanel(name) {
         if (Life.state !== "launcher" || !Cfg.valid)
             return
-        bluetoothOpen = true
+        panel = name
     }
-    function closeBluetooth() {
-        bluetoothOpen = false
+    function openBluetooth() { openPanel("bluetooth") }
+    function openNetwork() { openPanel("network") }
+    function closePanel() {
+        panel = ""
         Qt.callLater(restoreFocus)
     }
     function restoreFocus() {
         if (Life.state === "error")
             return // ErrorView focuses itself
-        if (bluetoothOpen)
-            btLoader.item && btLoader.item.focusDefault()
+        if (panel !== "")
+            panelLoader.item && panelLoader.item.focusDefault()
         else
             home.focusTile(Life.lastIndex)
     }
 
     onDebugViewChanged: {
         if (debugView === "bluetooth" || debugView === "pairing" || debugView === "bt-no-adapter")
-            bluetoothOpen = true
+            panel = "bluetooth"
+        else if (debugView.startsWith("network"))
+            panel = "network"
     }
 
     FocusScope {
@@ -49,19 +54,31 @@ Window {
             id: home
             anchors.fill: parent
             focus: true
-            visible: !window.bluetoothOpen
+            visible: window.panel === ""
             onOpenBluetooth: window.openBluetooth()
+            onOpenNetwork: window.openNetwork()
         }
 
         Loader {
-            id: btLoader
+            id: panelLoader
             anchors.fill: parent
-            active: window.bluetoothOpen
-            sourceComponent: BluetoothView {
-                forceNoAdapter: window.debugView === "bt-no-adapter"
-                onCloseRequested: window.closeBluetooth()
-            }
+            active: window.panel !== ""
+            sourceComponent: window.panel === "bluetooth" ? btComponent : netComponent
             onLoaded: Qt.callLater(() => { item.forceActiveFocus(); item.focusDefault() })
+        }
+        Component {
+            id: btComponent
+            BluetoothView {
+                forceNoAdapter: window.debugView === "bt-no-adapter"
+                onCloseRequested: window.closePanel()
+            }
+        }
+        Component {
+            id: netComponent
+            NetworkView {
+                debugView: window.debugView
+                onCloseRequested: window.closePanel()
+            }
         }
 
         TransitionView {
@@ -73,6 +90,10 @@ Window {
             id: errorView
             anchors.fill: parent
             shown: Life.state === "error"
+        }
+
+        IdleView {
+            anchors.fill: parent
         }
 
         FatalConfigView {
@@ -88,11 +109,11 @@ Window {
                 Qt.callLater(window.restoreFocus)
         }
         function onHomeAtLauncher() {
-            if (window.bluetoothOpen) {
-                if (btLoader.item)
-                    btLoader.item.close()
+            if (window.panel !== "") {
+                if (panelLoader.item)
+                    panelLoader.item.close()
                 else
-                    window.closeBluetooth()
+                    window.closePanel()
             }
         }
     }

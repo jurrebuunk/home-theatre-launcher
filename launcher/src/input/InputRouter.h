@@ -41,13 +41,16 @@ public:
 
 Q_SIGNALS:
     void homeRequested();
-    void navigate(int action); // Direction values, or Select = 10, Back = 11
+    void navigate(int action); // Direction values, or Select, Back, Delete, Menu
+    void activity();           // any button, key or stick movement
     void lastDeviceChanged();
     void navigationEnabledChanged();
 
 public:
     static constexpr int Select = 10;
     static constexpr int Back = 11;
+    static constexpr int Delete = 12; // X / Square
+    static constexpr int Menu = 13;   // Menu / Options
 
 private:
     struct Device {

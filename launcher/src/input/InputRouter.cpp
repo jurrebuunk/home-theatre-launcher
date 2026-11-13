@@ -245,8 +245,10 @@ void InputRouter::handleEvent(Device &d, int type, int code, int value)
         if (value == 2)
             return; // autorepeat; we do our own for controllers
         const bool pressed = value == 1;
-        if (pressed)
+        if (pressed) {
             setLastDevice(d.glyphs);
+            Q_EMIT activity();
+        }
 
         const QSet<int> &homeCodes = d.kind == Kind::Gamepad ? m_gamepadHome : m_keyboardHome;
         if (homeCodes.contains(code)) {
@@ -284,6 +286,10 @@ void InputRouter::handleEvent(Device &d, int type, int code, int value)
                 Q_EMIT navigate(m_confirmSouth ? Select : Back);
             else if (code == BTN_EAST)
                 Q_EMIT navigate(m_confirmSouth ? Back : Select);
+            else if (code == BTN_WEST)
+                Q_EMIT navigate(Delete);
+            else if (code == BTN_START)
+                Q_EMIT navigate(Menu);
         }
         return;
     }
@@ -309,8 +315,11 @@ void InputRouter::updateDirection(Device &d)
         dir = d.hatX < 0 ? Left : d.hatX > 0 ? Right : d.hatY < 0 ? Up : Down;
     else
         dir = axisDirection(d.axisX, d.axisY, m_deadzone);
-    if (dir != None)
+    if (dir != None) {
         setLastDevice(d.glyphs);
+        if (dir != m_held)
+            Q_EMIT activity();
+    }
     setHeld(dir);
 }
 

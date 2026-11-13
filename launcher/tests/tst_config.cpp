@@ -67,6 +67,12 @@ private Q_SLOTS:
         QTest::newRow("columns") << wrap({}, R"("appearance":{"columns":0})") << "columns";
         QTest::newRow("key") << wrap({}, R"("behavior":{"input":{"keys":{"select":["Nope"]}}})") << "unknown key";
         QTest::newRow("icon") << wrap(R"({"id":"a","label":"A","command":["/x"],"icon":"rel.svg"})") << "icon";
+        QTest::newRow("idle type") << wrap({}, R"("behavior":{"idle":{"background":{"type":"gif"}}})") << "background.type";
+        QTest::newRow("idle image") << wrap({}, R"("behavior":{"idle":{"background":{"type":"image"}}})") << "image is required";
+        QTest::newRow("idle builtin") << wrap({}, R"("behavior":{"idle":{"background":{"type":"image","image":"builtin:nope"}}})") << "unknown builtin background";
+        QTest::newRow("idle slideshow") << wrap({}, R"("behavior":{"idle":{"background":{"type":"slideshow"}}})") << "needs images";
+        QTest::newRow("idle dim") << wrap({}, R"("behavior":{"idle":{"background":{"dim":2}}})") << "dim";
+        QTest::newRow("idle timeout") << wrap({}, R"("behavior":{"idle":{"timeout":0}})") << "idle.timeout";
         QTest::newRow("missing icon") << wrap(R"({"id":"a","label":"A","command":["/x"],"icon":"/nonexistent.svg"})") << "does not exist";
     }
     void rejects()

@@ -21,6 +21,9 @@ declare -A ui=(
   [gamepad]=sports_esports [remote]=settings_remote [headphones]=headphones
   [keyboard]=keyboard [speaker]=soundbar [mouse]=mouse [phone]=mobile_2
   [device]=devices_other [home]=home [arrows]=open_with
+  [wifi]=wifi [wifi-2]=wifi_2_bar [wifi-1]=wifi_1_bar [wifi-off]=wifi_off
+  [lock]=lock [eye]=visibility [eye-off]=visibility_off [plus]=add
+  [backspace]=backspace [shift]=shift [space]=space_bar [globe]=language
 )
 declare -A apps=(
   [stream]=smart_display [tv]=tv [android]=android [gamepad]=stadia_controller

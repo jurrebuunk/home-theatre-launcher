@@ -21,6 +21,8 @@ QByteArray IconProvider::source(const QString &name)
         path = QStringLiteral(":/glyphs/%1.svg").arg(name.mid(6));
     else if (name.startsWith(QLatin1String("builtin/")))
         path = QStringLiteral(":/apps/%1.svg").arg(name.mid(8));
+    else if (name.startsWith(QLatin1String("background/")))
+        path = QStringLiteral(":/backgrounds/%1.svg").arg(name.mid(11));
     else
         path = QStringLiteral(":/icons/%1.svg").arg(name);
     QFile f(path);
@@ -61,7 +63,9 @@ QImage IconProvider::requestImage(const QString &id, QSize *size, const QSize &r
         QPainter p(&img);
         p.setRenderHint(QPainter::Antialiasing);
         QSizeF s = renderer.defaultSize();
-        s.scale(target, Qt::KeepAspectRatio);
+        // Backgrounds cover the whole target; icons fit inside it.
+        s.scale(target, name.startsWith(QLatin1String("background/")) ? Qt::KeepAspectRatioByExpanding
+                                                                       : Qt::KeepAspectRatio);
         const QRectF r((target.width() - s.width()) / 2, (target.height() - s.height()) / 2, s.width(), s.height());
         renderer.render(&p, r);
     }

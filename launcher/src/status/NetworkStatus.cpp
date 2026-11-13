@@ -1,6 +1,7 @@
 #include "NetworkStatus.h"
 
 #include "Config.h"
+#include "network/NetworkSettings.h"
 
 #include <QFile>
 #include <QHostInfo>
@@ -69,13 +70,19 @@ void NetworkStatus::check()
 {
     if (m_busy || m_demo)
         return;
+    QFile route(QStringLiteral("/proc/net/route"));
+    const QByteArray table = route.open(QIODevice::ReadOnly) ? route.readAll() : QByteArray();
+    QString via = m_interface;
     QFile carrier(QStringLiteral("/sys/class/net/%1/carrier").arg(m_interface));
     if (!carrier.open(QIODevice::ReadOnly) || carrier.readAll().trimmed() != "1") {
-        finish(false, QStringLiteral("nolink"));
-        return;
+        // No cable on the configured interface: another one (e.g. Wi-Fi) may still be up.
+        via = NetworkSettings::defaultRouteInterface(table);
+        if (via.isEmpty()) {
+            finish(false, QStringLiteral("nolink"));
+            return;
+        }
     }
-    QFile route(QStringLiteral("/proc/net/route"));
-    if (route.open(QIODevice::ReadOnly) && !hasDefaultRoute(route.readAll(), m_interface)) {
+    if (!table.isEmpty() && !hasDefaultRoute(table, via)) {
         // IPv4 default route missing; IPv6-only setups still get a chance via DNS/HTTPS.
         QFile route6(QStringLiteral("/proc/net/ipv6_route"));
         const bool v6 = route6.open(QIODevice::ReadOnly)
