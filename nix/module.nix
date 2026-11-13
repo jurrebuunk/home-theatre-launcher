@@ -21,12 +21,17 @@ let
       label = mkOption { type = types.str; description = "Tile label."; };
       description = opt (types.nullOr types.str) null "Supporting text (shown in error details).";
       icon = mkOption {
-        type = types.nullOr (types.either types.path (types.strMatching "^(/.*|builtin:[a-z]+)$"));
+        type = types.nullOr (types.either types.path (types.strMatching "^(/.*|builtin:[a-z]+|material:[a-z0-9_]+)$"));
         default = null;
-        example = literalExpression "./icons/stream.svg";
+        example = "material:sports_esports";
         description = ''
-          SVG (recoloured through `currentColor`) or PNG icon, or a bundled icon
-          `builtin:stream` / `builtin:tv`. Null uses a generic icon.
+          App icon. One of:
+          - `material:<name>`: any Material Symbols icon (Sharp, weight 300), e.g. `material:movie`
+            (names as on fonts.google.com/icons);
+          - `builtin:<name>`: bundled `stream`, `tv`, `android`, `gamepad`, `desktop`, `cast`,
+            `music`, `movie`, `web`;
+          - a path to an SVG (drawn in the theme colour) or PNG.
+          Null uses a generic icon.
         '';
       };
       command = mkOption {
@@ -78,6 +83,12 @@ let
     };
   };
 
+  # Full Material Symbols set (Apache-2.0) for `icon = "material:<name>"`.
+  materialSymbols = pkgs.fetchzip {
+    url = "https://registry.npmjs.org/@material-symbols/svg-300/-/svg-300-0.48.3.tgz";
+    hash = "sha256-SBm8wdT6AhI2Q0LR9LQTnp56enwFp93WxUyJOidvvp8=";
+  };
+
   a = cfg.appearance;
   b = cfg.behavior;
   dropNulls = lib.filterAttrsRecursive (_: v: v != null);
@@ -87,6 +98,8 @@ let
       ready exitWhen timeouts hooks;
     icon = if app.icon == null then null
            else if builtins.isPath app.icon then "${app.icon}"
+           else if lib.hasPrefix "material:" app.icon
+           then "${materialSymbols}/sharp/${lib.removePrefix "material:" app.icon}.svg"
            else app.icon;
   };
 

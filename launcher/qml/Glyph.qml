@@ -46,12 +46,20 @@ Item {
         source: root.glyphFile !== "" ? "image://icon/glyph/" + root.glyphFile : ""
         smooth: true
     }
-    Icon {
+    // The pack has no PS button: a filled disc with a home icon in the same style.
+    Rectangle {
         visible: root.device === "playstation" && root.gamepadAction === "home"
         anchors.centerIn: parent
-        name: "home-circle"
-        tint: Theme.text
-        size: root.size
+        width: root.size * 0.95
+        height: width
+        radius: width / 2
+        color: Theme.text
+        Icon {
+            anchors.centerIn: parent
+            name: "home"
+            tint: Theme.background
+            size: parent.width * 0.7
+        }
     }
     Rectangle {
         id: keyCap

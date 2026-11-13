@@ -59,13 +59,26 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         spacing: Theme.px(40)
 
-        Icon {
+        Row {
             anchors.verticalCenter: parent.verticalCenter
-            size: root.iconSize
-            name: Net.state === "offline" && Net.reason === "nolink" ? "ethernet-off" : "ethernet"
-            tint: Net.state === "online" ? Theme.muted
+            spacing: Theme.px(12)
+            readonly property color tone: Net.state === "online" ? Theme.muted
                 : Net.state === "checking" ? Theme.faint
                 : Net.reason === "nolink" ? Theme.error : Theme.warning
+            Icon {
+                anchors.verticalCenter: parent.verticalCenter
+                size: root.iconSize
+                name: Net.state === "offline" && Net.reason === "nolink" ? "ethernet-off" : "ethernet"
+                tint: parent.tone
+            }
+            Label {
+                anchors.verticalCenter: parent.verticalCenter
+                role: "value"
+                visible: Net.state !== "online"
+                color: parent.tone
+                text: Net.state === "checking" ? "checking"
+                    : Net.reason === "nolink" ? "no cable" : "offline"
+            }
         }
         Separator {
             vertical: true

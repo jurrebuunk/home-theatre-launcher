@@ -67,6 +67,7 @@ private Q_SLOTS:
         QTest::newRow("columns") << wrap({}, R"("appearance":{"columns":0})") << "columns";
         QTest::newRow("key") << wrap({}, R"("behavior":{"input":{"keys":{"select":["Nope"]}}})") << "unknown key";
         QTest::newRow("icon") << wrap(R"({"id":"a","label":"A","command":["/x"],"icon":"rel.svg"})") << "icon";
+        QTest::newRow("missing icon") << wrap(R"({"id":"a","label":"A","command":["/x"],"icon":"/nonexistent.svg"})") << "does not exist";
     }
     void rejects()
     {

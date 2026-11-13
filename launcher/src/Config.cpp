@@ -1,6 +1,7 @@
 #include "Config.h"
 
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -234,6 +235,11 @@ bool Config::loadJson(const QByteArray &json)
         ids.insert(a.id);
         if (!a.icon.isEmpty() && !a.icon.startsWith(QLatin1Char('/')) && !a.icon.startsWith(QLatin1String("builtin:")))
             m_errors << where + QStringLiteral(": icon must be an absolute path or builtin:<name>");
+        else if (a.icon.startsWith(QLatin1Char('/')) && !QFileInfo::exists(a.icon))
+            m_errors << where + QStringLiteral(": icon %1 does not exist").arg(a.icon);
+        else if (a.icon.startsWith(QLatin1String("builtin:"))
+                 && !QFileInfo::exists(QStringLiteral(":/apps/%1.svg").arg(a.icon.mid(8))))
+            m_errors << where + QStringLiteral(": unknown builtin icon '%1'").arg(a.icon);
         if (a.label.isEmpty())
             m_errors << where + QStringLiteral(": empty label");
         if (a.command.isEmpty() || a.command.first().isEmpty())

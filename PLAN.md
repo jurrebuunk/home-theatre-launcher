@@ -3,7 +3,8 @@
 > **Status:** implemented. Change from this plan: there are no app-specific
 > adapters. Every app uses the same generic options (`systemUnits`,
 > `stopCommand`, `ready.*`, `exitWhen.*`, hooks), and Moonlight / Waydroid
-> are presets in `nix/apps.nix`. The README is the up-to-date reference.
+> are presets in `nix/apps.nix`. Icons are Material Symbols Sharp (not hand-drawn,
+> see §6.6). The README is the up-to-date reference.
 
 Source of truth: `REQUIREMENTS.md` (behaviour, copied from the home-theatre repo), `docs/design/*.png` (look; rendered
 from `~/Downloads/Home Theatre Launcher.pdf`), flatwork-ui `DESIGN.md` @ `c217473`.

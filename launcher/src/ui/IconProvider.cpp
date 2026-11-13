@@ -50,8 +50,13 @@ QImage IconProvider::requestImage(const QString &id, QSize *size, const QSize &r
         if (!raster.isNull())
             img = raster.scaled(target, Qt::KeepAspectRatio, Qt::SmoothTransformation);
     } else {
-        if (!color.isEmpty())
-            svg.replace("currentColor", "#" + color.toLatin1());
+        if (!color.isEmpty()) {
+            const QByteArray hex = "#" + color.toLatin1();
+            if (svg.contains("currentColor"))
+                svg.replace("currentColor", hex);
+            else // single-colour icon sets (e.g. Material Symbols) rely on the default fill
+                svg.replace("<svg ", "<svg fill=\"" + hex + "\" ");
+        }
         QSvgRenderer renderer(svg);
         QPainter p(&img);
         p.setRenderHint(QPainter::Antialiasing);

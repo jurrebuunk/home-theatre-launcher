@@ -10,9 +10,14 @@ read-only internet indicator and a clock.
 ![Home](docs/screenshots/home.png)
 
 The design is in `docs/design/` (rendered from the original PDF) and
-follows flatwork-ui: flat, dark and square. The one deliberate difference is
-the controller button prompts, which use the real Xbox / PS5 glyphs from
-Kenney *Input Prompts* (CC0, `launcher/assets/glyphs/`).
+follows flatwork-ui: flat, dark and square. The icons come from established
+packs rather than the design's line drawings:
+
+- **Interface and app icons:** Google [Material Symbols](https://fonts.google.com/icons),
+  *Sharp* style at weight 300, with square corners and thin strokes to match
+  the design.
+- **Controller button prompts:** the real Xbox / PS5 glyphs from Kenney
+  *Input Prompts*.
 
 ## Screenshots
 
@@ -63,7 +68,7 @@ Rendered by the app itself (`--screenshot`, demo data) at 1920×1080.
       {
         id = "kodi";
         label = "Kodi";
-        icon = ./icons/kodi.svg;          # SVG using currentColor, or PNG
+        icon = "material:live_tv";       # any Material Symbol, builtin:<name>, or a path
         command = [ "${pkgs.kodi-wayland}/bin/kodi" ];
         ready.window.appId = "kodi";
       }
@@ -106,7 +111,7 @@ Each entry in `apps` accepts these fields:
 
 | option | meaning |
 |---|---|
-| `id`, `label`, `description`, `icon` | identity; `icon` is a path or `builtin:stream` / `builtin:tv` |
+| `id`, `label`, `description`, `icon` | identity; `icon` is `material:<name>` (any [Material Symbol](https://fonts.google.com/icons)), `builtin:stream` / `tv` / `android` / `gamepad` / `desktop` / `cast` / `music` / `movie` / `web`, or a path to an SVG/PNG |
 | `command`, `environment`, `workingDirectory` | argv executed directly (no shell) in a transient unit `htl-app-<id>.service` |
 | `ready.window.appId` / `appIdRegex` / `titleRegex` / `any` | ready when a matching Wayland window is mapped |
 | `ready.dbusName` | ready when this session-bus name appears |
@@ -185,4 +190,7 @@ These can only be confirmed with real hardware:
 
 ## Third-party assets
 
-Controller glyphs: Kenney *Input Prompts*, CC0 (`launcher/assets/glyphs/LICENSE-kenney.txt`).
+- Material Symbols (Google), Apache-2.0: `launcher/assets/icons`, `launcher/assets/apps`
+  (`launcher/assets/LICENSE-material-symbols.txt`). To refresh or remap them, run
+  `scripts/vendor-material-icons.sh [version]`.
+- Controller glyphs: Kenney *Input Prompts*, CC0 (`launcher/assets/glyphs/LICENSE-kenney.txt`).

@@ -38,6 +38,7 @@
         {
           id = "stubborn";
           label = "Stubborn";
+          icon = "material:block";
           command = [ "${pkgs.bash}/bin/bash" "-c" "trap '' TERM; while true; do ${pkgs.coreutils}/bin/sleep 1; done" ];
           timeouts = { start = 10; stop = 2; };
         }
