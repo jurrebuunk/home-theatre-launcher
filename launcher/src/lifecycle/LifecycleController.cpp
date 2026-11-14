@@ -30,6 +30,14 @@ LifecycleController::LifecycleController(const Config *config, UnitBackend *back
             failStart(QStringLiteral("%1 did not become ready within %2 s").arg(m_app.label).arg(m_app.startTimeout));
     });
     connect(&m_stopTimer, &QTimer::timeout, this, [this] { onStopDeadline(m_op); });
+    m_windowGone.setSingleShot(true);
+    m_windowGone.setInterval(WindowHandoffMs);
+    connect(&m_windowGone, &QTimer::timeout, this, [this] {
+        if (m_state != State::Running || matchingWindow())
+            return;
+        qCInfo(lcLife) << m_app.id << "window closed";
+        beginClose();
+    });
 
     connect(m_backend, &UnitBackend::unitChanged, this, [this](int bus, const QString &name) {
         if (bus == UnitBackend::User && name == m_app.unitName())
@@ -86,6 +94,7 @@ void LifecycleController::setState(State s)
         return "";
     }() << m_app.id;
     m_state = s;
+    m_windowGone.stop();
     if (s == State::Launcher)
         setSession({}, {});
     if (s == State::Running)
@@ -361,12 +370,12 @@ void LifecycleController::evaluate()
             return;
         }
         if (m_app.exitOnWindowClosed && m_app.hasWindowRule() && m_windows->available()) {
-            if (matchingWindow())
+            if (matchingWindow()) {
                 m_sawWindow = true;
-            else if (m_sawWindow) {
-                qCInfo(lcLife) << m_app.id << "window closed";
-                beginClose();
-                return;
+                m_windowGone.stop();
+            } else if (m_sawWindow && !m_windowGone.isActive()) {
+                qCInfo(lcLife) << m_app.id << "window gone, waiting" << WindowHandoffMs << "ms for another";
+                m_windowGone.start();
             }
         }
         if (m_app.exitOnDbusNameLost && !m_app.readyDbusName.isEmpty()) {

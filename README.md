@@ -278,7 +278,7 @@ Each entry in `apps` accepts these fields:
 | `command`, `environment`, `workingDirectory` | argv executed directly (no shell) in a transient unit `htl-app-<id>.service` |
 | `ready.window.appId` / `appIdRegex` / `titleRegex` / `any` | ready when a matching Wayland window is mapped |
 | `ready.dbusName` | ready when this session-bus name appears |
-| `exitWhen.unitExit` / `windowClosed` / `dbusNameLost` | what counts as the app having ended |
+| `exitWhen.unitExit` / `windowClosed` / `dbusNameLost` | what counts as the app having ended; `windowClosed` waits 2 s for a replacement window first (the `moonlight` and `waydroid` presets turn it off and track the process) |
 | `systemUnits` | system units started before the app and stopped (and verified stopped) after it |
 | `stopCommand` | command run before stopping the app unit (e.g. `waydroid session stop`) |
 | `timeouts.start` / `timeouts.stop` | bounded start and stop; stopping escalates to SIGKILL for the whole cgroup |

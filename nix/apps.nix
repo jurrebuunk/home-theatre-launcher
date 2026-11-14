@@ -12,6 +12,9 @@
     type = "moonlight";
     command = [ "${package}/bin/moonlight" ];
     ready.window.appId = "com.moonlight_stream.Moonlight";
+    # Its menu window is replaced by the stream window (and by error dialogs):
+    # the stream ends when the process does.
+    exitWhen.windowClosed = false;
     timeouts = { start = 30; stop = 10; };
   };
 

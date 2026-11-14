@@ -33,6 +33,8 @@ class LifecycleController : public QObject
 public:
     enum class State { Launcher, Launching, Running, Closing, Error };
     enum class ErrorKind { None, StartFailed, StopIncomplete };
+    // How long a running app may be without its window before that counts as closed.
+    static constexpr int WindowHandoffMs = 2000;
 
     LifecycleController(const Config *config, UnitBackend *backend, WindowSource *windows, NameSource *names,
                         QObject *parent = nullptr);
@@ -120,4 +122,7 @@ private:
 
     QTimer m_startTimer;
     QTimer m_stopTimer;
+    // A matching window vanished while the process lives: wait for its next one
+    // (e.g. Moonlight's menu window handing over to the stream window).
+    QTimer m_windowGone;
 };

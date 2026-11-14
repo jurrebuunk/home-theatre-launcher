@@ -139,6 +139,7 @@ private:
     Moonlight::Identity m_identity;
 
     bool m_open = false;
+    int m_generation = 0; // bumped by close()
     QList<HostState> m_hosts;
     QList<Found> m_found;
     QString m_selected;

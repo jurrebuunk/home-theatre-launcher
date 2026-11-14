@@ -36,8 +36,11 @@
             ""]))
         EOF
       '';
+      # Like moonlight-qt: a menu window first, then it is replaced by the
+      # stream window (a different surface with the same app id).
       fakeMoonlight = pkgs.writeShellScript "moonlight" ''
         echo "$*" >> /tmp/moonlight-args
+        ${pkgs.foot}/bin/foot --app-id=com.moonlight_stream.Moonlight ${pkgs.coreutils}/bin/sleep 3
         exec ${pkgs.foot}/bin/foot --app-id=com.moonlight_stream.Moonlight ${pkgs.coreutils}/bin/sleep infinity
       '';
       sunshine = pkgs.writeText "fake-sunshine.py" (builtins.readFile ./fake-sunshine.py);
@@ -49,6 +52,8 @@
       virtualisation.qemu.options = [ "-vga none" "-device virtio-gpu-pci" ];
       environment.systemPackages = [ pkgs.curl pkgs.avahi ];
       environment.etc."htl-test/Moonlight.conf".source = conf;
+      environment.etc."htl-test/client.pem".source = "${certs}/client.pem";
+      environment.etc."htl-test/client.key".source = "${certs}/client.key";
 
       systemd.services.fake-gaming-pc = {
         wantedBy = [ "multi-user.target" ];
@@ -132,6 +137,13 @@
         machine.sleep(1)
         machine.screenshot("moonlight-library")
 
+    with subtest("the library leaves no connection open that blocks the host"):
+        # Polling every second; the host serves one HTTPS connection at a time.
+        for _ in range(8):
+            machine.succeed("curl -sk --max-time 3 --cert /etc/htl-test/client.pem --key /etc/htl-test/client.key "
+                            "https://127.0.0.1:47984/serverinfo?uniqueid=0123456789ABCDEF | grep -q PairStatus")
+            time.sleep(0.5)
+
     with subtest("discovery: an unpaired host announced over mDNS is offered"):
         machine.succeed("systemd-run --unit=announce avahi-publish -s 'Office PC' _nvstream._tcp 48989")
         wait(lambda: any(f.endswith("Office PC") for f in value("MoonlightFound")), "found host", timeout=60)
@@ -139,6 +151,8 @@
     with subtest("stream: moonlight stream <host> <app>, session in the menu"):
         assert value("MoonlightStream", "ss", "'Gaming PC'", "'Ember Coast'") == ""
         wait(lambda: state() == "running", "running")
+        machine.sleep(5)  # the menu window has been replaced by the stream window
+        assert state() == "running", state()
         args = machine.succeed("cat /tmp/moonlight-args").strip()
         assert args == "stream F00D-CAFE Ember Coast --fps 60", args
         assert value("Session") == "Ember Coast@Gaming PC"

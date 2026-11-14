@@ -1,6 +1,9 @@
 # A tiny stand-in for a GameStream / Sunshine host: serverinfo over HTTP, and
 # over HTTPS (client certificate required) serverinfo, applist, appasset and
 # cancel. /test/* endpoints let the test script set and read its state.
+# Like Sunshine/Apollo, HTTPS is served by one thread, and a connection the
+# client leaves open holds that thread: every other client waits until the
+# client closes it.
 # Usage: fake-sunshine.py NAME UUID HTTP_PORT [HTTPS_PORT SERVER_CERT SERVER_KEY CLIENT_CERT]
 import http.server
 import json
@@ -25,6 +28,9 @@ def png():
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+    timeout = 150  # an idle client is dropped eventually (Qt keeps them ~120 s)
+
     def log_message(self, *args):
         pass
 
@@ -34,6 +40,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+        # Read the next request on this connection whatever the client asked.
+        self.close_connection = False
 
     def do_GET(self):
         path = self.path.split("?")[0]
@@ -76,7 +84,7 @@ if https_port:
     ctx.load_cert_chain(sys.argv[5], sys.argv[6])
     ctx.verify_mode = ssl.CERT_REQUIRED  # only the paired client (moonlight's certificate)
     ctx.load_verify_locations(sys.argv[7])
-    https = http.server.ThreadingHTTPServer(("0.0.0.0", https_port), Handler)
+    https = http.server.HTTPServer(("0.0.0.0", https_port), Handler)  # single-threaded
     https.socket = ctx.wrap_socket(https.socket, server_side=True)
     serve(https)
 threading.Event().wait()

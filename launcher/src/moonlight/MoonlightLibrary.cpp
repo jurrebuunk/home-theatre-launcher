@@ -27,6 +27,8 @@
 #include <QUrlQuery>
 #include <QUuid>
 
+#include <algorithm>
+
 Q_LOGGING_CATEGORY(lcMoonlight, "htl.moonlight")
 
 namespace {
@@ -251,6 +253,7 @@ void MoonlightLibrary::open()
     if (m_demo)
         return;
     m_identity = Moonlight::readIdentity(m_confPath);
+    m_artRequested.clear(); // retry art that failed last time
     reload();
     refreshAll();
     m_refreshTimer.start();
@@ -260,7 +263,13 @@ void MoonlightLibrary::open()
 void MoonlightLibrary::close()
 {
     m_open = false;
+    ++m_generation; // drops the callbacks of the aborted polls below
     m_refreshTimer.stop();
+    // Library requests must not overlap a stream's own; quitting a game stays.
+    if (m_net)
+        for (QNetworkReply *r : m_net->findChildren<QNetworkReply *>())
+            if (r->isRunning() && r->url().path() != QLatin1String("/cancel"))
+                r->abort();
     stopDiscovery();
     if (m_pairProcess || m_pairing.value("state") == QLatin1String("connecting"))
         cancelPair();
@@ -379,10 +388,15 @@ void MoonlightLibrary::probe(const QString &uuid, int index)
         return;
     }
     const Moonlight::Address address = candidates.at(index);
-    get(address, false, QStringLiteral("/serverinfo"), {}, {}, 1500, [this, uuid, index, address](bool ok, const QByteArray &body) {
+    const int gen = m_generation;
+    get(address, false, QStringLiteral("/serverinfo"), {}, {}, 1500, [this, uuid, index, address, gen](bool ok, const QByteArray &body) {
         HostState *h = state(uuid);
         if (!h)
             return;
+        if (gen != m_generation) {
+            h->busy = false;
+            return;
+        }
         const Moonlight::ServerInfo info = ok ? Moonlight::parseServerInfo(body) : Moonlight::ServerInfo{};
         if (!info.ok || (!info.uuid.isEmpty() && info.uuid != uuid)) {
             probe(uuid, index + 1);
@@ -408,11 +422,16 @@ void MoonlightLibrary::fetchSecure(const QString &uuid)
 {
     const HostState *h = state(uuid);
     const Moonlight::Address secure{h->active.host, h->httpsPort};
+    const int gen = m_generation;
     get(secure, true, QStringLiteral("/serverinfo"), {}, h->conf.serverCert, 3000,
-        [this, uuid, secure](bool ok, const QByteArray &body) {
+        [this, uuid, secure, gen](bool ok, const QByteArray &body) {
             HostState *h = state(uuid);
             if (!h)
                 return;
+            if (gen != m_generation) {
+                h->busy = false;
+                return;
+            }
             const Moonlight::ServerInfo info = ok ? Moonlight::parseServerInfo(body) : Moonlight::ServerInfo{};
             if (info.ok && info.currentGame != h->currentGame) {
                 h->currentGame = info.currentGame;
@@ -424,11 +443,13 @@ void MoonlightLibrary::fetchSecure(const QString &uuid)
                 return;
             }
             get(secure, true, QStringLiteral("/applist"), {}, h->conf.serverCert, 5000,
-                [this, uuid](bool ok, const QByteArray &body) {
+                [this, uuid, gen](bool ok, const QByteArray &body) {
                     HostState *h = state(uuid);
                     if (!h)
                         return;
                     h->busy = false;
+                    if (gen != m_generation)
+                        return;
                     bool parsed = false;
                     QList<Moonlight::App> list = ok ? Moonlight::parseAppList(body, &parsed) : QList<Moonlight::App>{};
                     if (!parsed)
@@ -498,6 +519,11 @@ void MoonlightLibrary::get(const Moonlight::Address &address, bool https, const 
 
     QNetworkRequest req(url);
     req.setTransferTimeout(timeoutMs);
+    // One request per connection, closed by us. A kept-alive idle connection
+    // stalls Sunshine/Apollo's single-threaded HTTPS server for every client
+    // (moonlight included) until Qt drops it from its pool ~2 minutes later.
+    req.setRawHeader("Connection", "close");
+    req.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
     if (https) {
         QSslConfiguration ssl = QSslConfiguration::defaultConfiguration();
         ssl.setLocalCertificate(QSslCertificate(m_identity.certificate));
@@ -516,9 +542,16 @@ void MoonlightLibrary::get(const Moonlight::Address &address, bool https, const 
             }
         });
     }
-    connect(reply, &QNetworkReply::finished, this, [reply, done] {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, done] {
         reply->deleteLater();
-        done(reply->error() == QNetworkReply::NoError, reply->readAll());
+        const bool ok = reply->error() == QNetworkReply::NoError;
+        done(ok, ok ? reply->readAll() : QByteArray());
+        // Belt and braces: nothing may linger once the last request is done.
+        QMetaObject::invokeMethod(this, [this] {
+            const auto replies = m_net ? m_net->findChildren<QNetworkReply *>() : QList<QNetworkReply *>{};
+            if (m_net && std::none_of(replies.cbegin(), replies.cend(), [](QNetworkReply *r) { return r->isRunning(); }))
+                m_net->clearConnectionCache();
+        }, Qt::QueuedConnection);
     });
 }
 

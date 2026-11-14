@@ -157,6 +157,24 @@ private Q_SLOTS:
         QVERIFY(log.indexOf("stop htl-app-android.service") < log.indexOf("stop container.service"));
     }
 
+    // Moonlight swaps its Qt menu window for the SDL stream window: a window
+    // that is replaced within the grace period does not end the session.
+    void windowHandoffKeepsRunning()
+    {
+        life->launch("stream");
+        const quint32 menu = windows->add("stream.app");
+        QTRY_COMPARE(life->stateName(), QStringLiteral("running"));
+        windows->remove(menu);
+        QTest::qWait(LifecycleController::WindowHandoffMs / 4);
+        windows->add("stream.app", "stream window");
+        QTest::qWait(LifecycleController::WindowHandoffMs + 300);
+        QCOMPARE(life->stateName(), QStringLiteral("running"));
+        QCOMPARE(units->activeState(U, "htl-app-stream.service"), QStringLiteral("active"));
+        // the process exiting still ends it
+        units->setState(U, "htl-app-stream.service", "inactive");
+        QTRY_COMPARE(life->stateName(), QStringLiteral("launcher"));
+    }
+
     void busNameLossEndsSession()
     {
         life->launch("android");
