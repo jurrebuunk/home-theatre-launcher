@@ -4,7 +4,9 @@ A minimal, controller-friendly TV launcher for NixOS. It is configured
 entirely through Nix: one persistent **labwc** compositor, a fullscreen
 **Qt 6 / QML** interface, and **systemd** supervising every app. You can
 launch any application you configure; Moonlight and Waydroid are only
-ready-made examples. The launcher also includes a full Bluetooth menu, a
+ready-made examples. Moonlight gets a library of its own: the apps of your
+paired PCs as box art, with Wake-on-LAN, host discovery and pairing, and an
+in-app menu that knows it is a stream. The launcher also includes a full Bluetooth menu, a
 Network screen (Ethernet details and Wi-Fi with an on-screen keyboard), an
 in-app menu over running apps, sound output and volume control,
 notifications that appear over everything, an idle screen with a large
@@ -35,6 +37,10 @@ Rendered by the app itself (`--screenshot`, demo data) at 1920×1080.
 
 | | |
 |---|---|
+| ![Moonlight library](docs/screenshots/moonlight.png) | ![Moonlight hosts](docs/screenshots/moonlight-hosts.png) |
+| **Moonlight**: the host's apps as box art; ▶ marks what runs on the PC | **Hosts**: wake, choose the main host, remove; pair found PCs or add one by address |
+| ![Moonlight pairing](docs/screenshots/moonlight-pair.png) | ![Stop playing](docs/screenshots/overlay-stream-stop.png) |
+| **Pairing**: enter the PIN on the PC | In a stream the menu offers **Stop playing** (quits the game on the PC) or **Disconnect** |
 | ![Starting](docs/screenshots/starting.png) | ![Closing](docs/screenshots/closing.png) |
 | **Starting…** shown above the app until its window is ready | **Closing…** while the app and its services stop |
 | ![Bluetooth](docs/screenshots/bluetooth.png) | ![Bluetooth, PlayStation prompts](docs/screenshots/bluetooth-playstation.png) |
@@ -174,6 +180,44 @@ behavior.overlay = {
 Combos fire when they are released, so the app never keeps a stuck button.
 `ToggleOverlay()` on the control API can back a compositor keybinding too.
 
+### Moonlight
+
+An app with `type = "moonlight"` (the `lib.apps.moonlight` preset sets it)
+opens a library instead of starting moonlight-qt's own interface:
+
+- **Library:** the apps of the selected host as box art. The app running on
+  the PC carries a ▶ badge. **A** plays it: the stream starts as
+  `moonlight stream <host> <app> <streamArguments>` and is supervised like
+  any app. If another app runs on the PC, the launcher asks to quit it first.
+  The host name at the top switches between paired hosts; **Y** opens Hosts.
+- **Hosts:** paired PCs with their address, the main host (★, opened first)
+  and whether they are online (🔗) or asleep (☾). Expand one for **Wake**
+  (Wake-on-LAN) or **Open**, **Main host** and **Remove**. PCs announcing
+  themselves on the network (mDNS through Avahi) are listed under *Found on
+  network*; **Add by address** takes an IP address or host name.
+- **Pairing:** shows a PIN to enter on the PC (Sunshine's web UI or GeForce
+  Experience) while moonlight-qt pairs in the background.
+- **In-app menu during a stream:** shows the game and the PC and offers
+  **Stop playing**, which ends the stream *and* quits the game on the PC, or
+  **Disconnect**, which leaves the game running there to resume later.
+
+Hosts are kept in moonlight-qt's own settings, so its regular interface sees
+the same PCs. Status, app lists and box art come directly from the host's
+GameStream / Sunshine API with moonlight's client certificate, and the host
+certificate saved at pairing is pinned.
+
+```nix
+apps = [
+  ((home-theatre-launcher.lib.apps.moonlight { inherit pkgs; }) // {
+    streamArguments = [ "--resolution" "1920x1080" "--fps" "60" ];
+  })
+];
+behavior.moonlight = {
+  discovery = true;    # enables Avahi (mDNS) to find hosts
+  refreshSeconds = 5;  # host status while the library is open
+};
+```
+
 ### Sound
 
 The speaker icon in the status row (and **Sound** in the in-app menu) shows
@@ -228,6 +272,8 @@ Each entry in `apps` accepts these fields:
 
 | option | meaning |
 |---|---|
+| `type` | `app` (default) or `moonlight` (the tile opens the Moonlight library) |
+| `streamArguments` | Moonlight only: extra `moonlight stream` options |
 | `id`, `label`, `description`, `icon` | identity; `icon` is `material:<name>` (any [Material Symbol](https://fonts.google.com/icons)), `builtin:stream` / `tv` / `android` / `gamepad` / `desktop` / `cast` / `music` / `movie` / `web`, or a path to an SVG/PNG |
 | `command`, `environment`, `workingDirectory` | argv executed directly (no shell) in a transient unit `htl-app-<id>.service` |
 | `ready.window.appId` / `appIdRegex` / `titleRegex` / `any` | ready when a matching Wayland window is mapped |
@@ -275,7 +321,8 @@ compositor. See `nix/module.nix` for every option and its default.
 - **Control API:** `nl.jurrebuunk.HomeTheatre1` on the session bus provides
   `Launch(s)`, `Home()`, `OpenBluetooth()`, `OpenNetwork()`, `ToggleOverlay()`, `EnterIdle()`,
   `SoundOutputs`, `SetSoundOutput(s)`, `SetVolume(i)`, `VolumeStep(i)`, `Notifications`,
-  `Wake()`, the network calls (`NetworkInterfaces`, `WifiNetworks`,
+  `Wake()`, the Moonlight calls (`OpenMoonlight`, `MoonlightHosts`, `MoonlightFound`,
+  `MoonlightApps`, `MoonlightStream(ss)`, `MoonlightStopPlaying`, `Session`), the network calls (`NetworkInterfaces`, `WifiNetworks`,
   `WifiScan`, `WifiConnect(ss)`, `WifiConnectStatus`, `SetIpv4(sssss)`) and
   the `State` / `Idle` / `OverlayOpen` / `Volume` properties. The VM tests use it, and it can also back
   a compositor keybinding.
@@ -289,13 +336,14 @@ ninja -C launcher/build && (cd launcher/build && ctest)
 
 nix run .#demo                   # windowed demo: fake apps, Bluetooth and network
 ./launcher/build/home-theatre-launcher --screenshot bluetooth:/tmp/bt.png [--glyphs playstation]
-nix flake check                  # package + unit tests + both NixOS VM tests
+nix flake check                  # package + unit tests + the NixOS VM tests
 ```
 
 Screenshot views: `home`, `starting`, `closing`, `error-start`, `error-stop`,
 `bluetooth`, `pairing`, `bt-no-adapter`, `network-wifi`, `network-password`,
 `network-ethernet`, `idle`, `idle-image`, `overlay`, `overlay-bluetooth`,
-`overlay-network`, `overlay-sound`, `overlay-close`, `sound`, `notifications`, `volume`. The README images in
+`overlay-network`, `overlay-sound`, `overlay-close`, `sound`, `notifications`, `volume`, `moonlight`,
+`moonlight-hosts`, `moonlight-pair`, `overlay-stream`, `overlay-stream-stop`. The README images in
 `docs/screenshots/` are made this way (fonts via `FONTCONFIG_FILE` with STIX Two
 and IBM Plex Mono).
 
@@ -304,11 +352,18 @@ and a simulated Wi-Fi access point (`mac80211_hwsim` + hostapd): scanning, a
 rejected wrong password, connecting, manual/automatic IPv4, and the idle
 timer.
 
+The `vm-moonlight` check runs the library against fake GameStream hosts (a
+small Python server with HTTPS client certificates): host status, apps, box
+art, the running-app badge, mDNS discovery, a stream with its arguments, Stop
+playing (the game is quit on the host) and Disconnect (it keeps running).
+
 ## Verify on the real machine
 
 These can only be confirmed with real hardware:
 
 - Moonlight's Wayland app_id (`com.moonlight_stream.Moonlight`).
+- Pairing with a real Sunshine / GeForce Experience host (moonlight-qt does
+  the handshake; the VM test covers everything after it), and Wake-on-LAN.
 - How Waydroid's full UI behaves with the preset (session bus name
   `id.waydro.Session`). Check that `waydroid status` shows the container
   stopped after returning home.

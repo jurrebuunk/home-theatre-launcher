@@ -19,6 +19,14 @@ let
         description = "Stable identifier (also names the systemd unit `htl-app-<id>.service`).";
       };
       label = mkOption { type = types.str; description = "Tile label."; };
+      type = opt (types.enum [ "app" "moonlight" ]) "app" ''
+        `app` launches `command`. `moonlight`: `command` is moonlight-qt; the
+        tile opens the Moonlight library (hosts, box art, pairing, Wake-on-LAN)
+        and streams start as `command stream <host> <app> streamArguments`.
+      '';
+      streamArguments = opt (types.listOf types.str) [ ] ''
+        Moonlight only: extra `moonlight stream` options, e.g. `[ "--resolution" "1920x1080" "--fps" "60" ]`.
+      '';
       description = opt (types.nullOr types.str) null "Supporting text (shown in error details).";
       icon = mkOption {
         type = types.nullOr (types.either types.path (types.strMatching "^(/.*|builtin:[a-z]+|material:[a-z0-9_]+)$"));
@@ -94,8 +102,8 @@ let
   dropNulls = lib.filterAttrsRecursive (_: v: v != null);
 
   appJson = app: dropNulls {
-    inherit (app) id label description command environment workingDirectory systemUnits stopCommand
-      ready exitWhen timeouts hooks;
+    inherit (app) id label type streamArguments description command environment workingDirectory systemUnits
+      stopCommand ready exitWhen timeouts hooks;
     icon = if app.icon == null then null
            else if builtins.isPath app.icon then "${app.icon}"
            else if lib.hasPrefix "material:" app.icon
@@ -126,6 +134,7 @@ let
       network = { inherit (b.network) scanDuration; };
       overlay = b.overlay;
       notifications = b.notifications;
+      moonlight = b.moonlight;
       sound = b.sound // { pactl = "${pkgs.pulseaudio}/bin/pactl"; };
       idle = {
         inherit (b.idle) enable timeout showStatus;
@@ -340,6 +349,14 @@ in
         maxVolume = opt (types.ints.between 1 150) 100 "Highest volume the launcher sets.";
         volumeKeys = opt types.bool true "Handle remote/keyboard volume keys everywhere (also inside apps).";
       };
+      moonlight = {
+        discovery = opt types.bool true ''
+          Find Moonlight hosts on the network (mDNS through Avahi, which is
+          enabled for it) so they can be paired from the Hosts page.
+        '';
+        refreshSeconds = opt pos 5 "How often the library checks its hosts (online, running app) while open.";
+        pairTimeout = opt pos 180 "Seconds to wait for the PIN to be entered on the host.";
+      };
       notifications = {
         enable = opt types.bool true ''
           Notifications above everything (also over apps and the in-app menu, without dimming):
@@ -495,6 +512,12 @@ in
       '')
     ];
     networking.networkmanager.enable = mkIf b.network.networkmanager true;
+
+    # Moonlight hosts announce themselves over mDNS.
+    services.avahi = mkIf (b.moonlight.discovery && lib.any (app: app.type == "moonlight") cfg.apps) {
+      enable = mkDefault true;
+      openFirewall = mkDefault true;
+    };
 
     # Keep BlueZ running (and the menu usable) even before an adapter is attached.
     boot.kernelModules = lib.optional b.bluetooth.enable "bluetooth";

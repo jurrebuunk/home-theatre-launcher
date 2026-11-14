@@ -27,6 +27,8 @@ class LifecycleController : public QObject
     Q_PROPERTY(bool cleanupIncomplete READ cleanupIncomplete NOTIFY changed)
     // ms since the epoch when the current app became ready (0 when none)
     Q_PROPERTY(qint64 runningSince READ runningSince NOTIFY changed)
+    // Moonlight stream being played (host, hostName, appId, appName); empty for plain apps.
+    Q_PROPERTY(QVariantMap session READ session NOTIFY changed)
 
 public:
     enum class State { Launcher, Launching, Running, Closing, Error };
@@ -46,11 +48,15 @@ public:
     QString errorDetails() const { return m_errorDetails; }
     bool cleanupIncomplete() const { return m_cleanupIncomplete; }
     qint64 runningSince() const { return m_runningSince; }
+    QVariantMap session() const { return m_session; }
 
     // Adopt a still-running app after a launcher restart, stop strays.
     void startup();
 
     Q_INVOKABLE void launch(const QString &id);
+    // Launch app `id` with extra arguments (e.g. `stream <host> <app>`) as a
+    // session; `session.appName` replaces the label while it runs.
+    void launchSession(const QString &id, const QStringList &arguments, const QVariantMap &session);
     Q_INVOKABLE void home();
     Q_INVOKABLE void retry();
     Q_INVOKABLE void stopAgain();
@@ -58,6 +64,7 @@ public:
 
     // Demo/screenshot support: show a state without touching any process.
     void debugShow(const QString &state, const QString &appId, const QString &errorKind);
+    void debugSession(const QVariantMap &session);
 
 Q_SIGNALS:
     void changed();
@@ -65,6 +72,8 @@ Q_SIGNALS:
 
 private:
     void setState(State s);
+    void setSession(const QStringList &arguments, const QVariantMap &session);
+    static QString sessionFile();
     bool alive(int op) const { return op == m_op; }
     void runHook(const QStringList &argv, int op, std::function<void(bool, const QString &)> next);
     void startSystemUnits(int index, int op);
@@ -92,6 +101,8 @@ private:
     int m_lastIndex = 0;
     int m_op = 0;
     qint64 m_runningSince = 0;
+    QVariantMap m_session;
+    QStringList m_sessionArguments;
 
     UnitBackend::UnitState m_unit;
     bool m_unitKnown = false;

@@ -108,6 +108,7 @@ void WindowController::injectNavigation(int action, int selectKey, int backKey)
     case InputRouter::Back: key = backKey; break;
     case InputRouter::Delete: key = Qt::Key_Delete; break;
     case InputRouter::Menu: key = Qt::Key_Menu; break;
+    case InputRouter::Alt: key = Qt::Key_F2; break;
     default: return;
     }
     QKeyEvent press(QEvent::KeyPress, key, Qt::NoModifier);

@@ -47,7 +47,7 @@ public:
 
 Q_SIGNALS:
     void homeRequested();
-    void navigate(int action); // Direction values, or Select, Back, Delete, Menu
+    void navigate(int action); // Direction values, or Select, Back, Delete, Menu, Alt
     void activity();           // any button, key or stick movement
     void overlayRequested();   // the configured in-app menu button / combo
     void volumeKey(int direction); // +1 up, -1 down, 0 mute (works inside apps too)
@@ -59,6 +59,7 @@ public:
     static constexpr int Back = 11;
     static constexpr int Delete = 12; // X / Square
     static constexpr int Menu = 13;   // Menu / Options
+    static constexpr int Alt = 14;    // Y / Triangle
 
 private:
     struct Device {

@@ -14,6 +14,8 @@ FocusScope {
     property int maxLength: 64
     property string error
     property string hint
+    // Host names / IP addresses: '.' and ':' instead of '-' and '_'.
+    property bool address: false
     signal submitted(string text)
     signal cancelled()
 
@@ -43,7 +45,7 @@ FocusScope {
         } else {
             const l = s => upper ? s.toUpperCase() : s
             r.push(chars(l("qwertyuiop")))
-            r.push(chars(l("asdfghjkl") + (upper ? "_" : "-")))
+            r.push(chars(l("asdfghjkl") + (address ? (upper ? ":" : ".") : (upper ? "_" : "-"))))
             r.push([{ k: "shift", w: 1.5 }].concat(chars(l("zxcvbnm"))).concat([{ k: "bksp", w: 1.5 }]))
         }
         r.push([{ k: "mode", t: sym ? "abc" : "#+=", w: 2 }, { k: "space", w: 5 }, { k: "submit", t: submitText, w: 3 }])

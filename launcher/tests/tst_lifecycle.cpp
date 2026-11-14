@@ -3,6 +3,7 @@
 #include "lifecycle/LifecycleController.h"
 
 #include <QSignalSpy>
+#include <QTemporaryDir>
 #include <QTest>
 
 // Exercises the state machine against in-memory systemd/window/bus fakes.
@@ -11,6 +12,7 @@ class TestLifecycle : public QObject
     Q_OBJECT
 
     Config config;
+    QTemporaryDir runtime; // session file of a running stream
     FakeUnitBackend *units = nullptr;
     FakeWindowSource *windows = nullptr;
     FakeNameSource *names = nullptr;
@@ -22,6 +24,7 @@ class TestLifecycle : public QObject
 private Q_SLOTS:
     void initTestCase()
     {
+        qputenv("XDG_RUNTIME_DIR", runtime.path().toUtf8());
         QVERIFY2(config.loadJson(R"({"version":1,"apps":[
             {"id":"stream","label":"Stream","command":["/bin/stream"],
              "ready":{"window":{"appId":"stream.app"}},"timeouts":{"start":1,"stop":1}},
@@ -203,6 +206,34 @@ private Q_SLOTS:
         QTRY_COMPARE(life->stateName(), QStringLiteral("launcher"));
         // nothing running → stray system units of apps are stopped
         QTRY_COMPARE(units->activeState(S, "container.service"), QStringLiteral("inactive"));
+    }
+
+    void streamSession()
+    {
+        life->launchSession("plain", {"stream", "uuid-1", "Ember Coast"},
+                            {{"host", "uuid-1"}, {"hostName", "Gaming PC"}, {"appName", "Ember Coast"}});
+        QCOMPARE(life->appLabel(), QStringLiteral("Ember Coast"));
+        QTRY_COMPARE(life->stateName(), QStringLiteral("running"));
+        QVERIFY(units->log.contains("startTransient htl-app-plain.service /bin/plain stream uuid-1 Ember Coast"));
+        QCOMPARE(life->session().value("hostName").toString(), QStringLiteral("Gaming PC"));
+
+        // A restarted launcher still knows what is streaming.
+        LifecycleController restarted(&config, units, windows, names);
+        restarted.startup();
+        QTRY_COMPARE(restarted.stateName(), QStringLiteral("running"));
+        QCOMPARE(restarted.appLabel(), QStringLiteral("Ember Coast"));
+        QCOMPARE(restarted.session().value("host").toString(), QStringLiteral("uuid-1"));
+
+        life->home();
+        QTRY_COMPARE(life->stateName(), QStringLiteral("launcher"));
+        QVERIFY(life->session().isEmpty());
+        QCOMPARE(life->appLabel(), QStringLiteral("Plain"));
+
+        // A plain launch carries no session.
+        life->launch("plain");
+        QTRY_COMPARE(life->stateName(), QStringLiteral("running"));
+        QVERIFY(life->session().isEmpty());
+        QVERIFY(units->log.contains("startTransient htl-app-plain.service /bin/plain"));
     }
 
     void preStartHookFailure()

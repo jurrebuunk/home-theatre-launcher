@@ -6,6 +6,7 @@ FocusScope {
     signal openBluetooth()
     signal openNetwork()
     signal openSound()
+    signal openMoonlight(int index)
 
     // Configured columns, reduced to what fits the safe area (never overflow).
     readonly property int fittingColumns: Math.max(1, Math.floor((area.width + Theme.px(Theme.layout.gap))
@@ -69,7 +70,8 @@ FocusScope {
                 AppTile {
                     app: modelData
                     index: model.index
-                    onActivated: Life.launch(app.id)
+                    // A Moonlight tile opens its library; streams start from there.
+                    onActivated: app.type === "moonlight" ? root.openMoonlight(index) : Life.launch(app.id)
                     Keys.onLeftPressed: root.move(index, -1, 0)
                     Keys.onRightPressed: root.move(index, 1, 0)
                     Keys.onUpPressed: root.move(index, 0, -1)

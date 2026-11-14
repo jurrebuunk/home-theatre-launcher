@@ -9,6 +9,7 @@
 #include "lifecycle/Fakes.h"
 #include "lifecycle/LifecycleController.h"
 #include "lifecycle/SystemdBackend.h"
+#include "moonlight/MoonlightLibrary.h"
 #include "network/NetworkSettings.h"
 #include "status/Clock.h"
 #include "status/NetworkStatus.h"
@@ -68,7 +69,8 @@ int main(int argc, char *argv[])
                                               "pairing, bt-no-adapter, network-wifi, network-password, "
                                               "network-ethernet, idle, idle-image, overlay, overlay-bluetooth, "
                                               "overlay-network, overlay-sound, overlay-close, sound, notifications, "
-                                              "volume) to <file> and exit. "
+                                              "volume, moonlight, moonlight-hosts, moonlight-pair, "
+                                              "overlay-stream, overlay-stream-stop) to <file> and exit. "
                                               "Implies --demo."),
                                QStringLiteral("view:file"));
     QCommandLineOption glyphsOpt(QStringLiteral("glyphs"),
@@ -125,6 +127,12 @@ int main(int argc, char *argv[])
     SoundManager sound(&config, demo);
     Notifier notifier(&config);
     control.setSound(&sound, &notifier);
+    MoonlightLibrary moonlight(&config, &life, demo);
+    control.setMoonlight(&moonlight);
+    QObject::connect(&moonlight, &MoonlightLibrary::stopped, &notifier, [&notifier](const QString &app, const QString &host) {
+        notifier.notify({{"icon", "stop"}, {"title", host.isEmpty() ? QStringLiteral("Stopped %1").arg(app)
+                                                                    : QStringLiteral("Stopped %1 on %2").arg(app, host)}});
+    });
     sound.setBatteryLookup([&bluetooth](const QString &address) { return bluetooth.batteryForAddress(address); });
 
     // Notifications from Bluetooth, network and sound.
@@ -170,6 +178,7 @@ int main(int argc, char *argv[])
     ctx->setContextProperty(QStringLiteral("Overlay"), &overlay);
     ctx->setContextProperty(QStringLiteral("Sound"), &sound);
     ctx->setContextProperty(QStringLiteral("Notes"), &notifier);
+    ctx->setContextProperty(QStringLiteral("Moonlight"), &moonlight);
     ctx->setContextProperty(QStringLiteral("Clock"), &clock);
     ctx->setContextProperty(QStringLiteral("Input"), &input);
     ctx->setContextProperty(QStringLiteral("Control"), &control);
@@ -213,9 +222,16 @@ int main(int argc, char *argv[])
             life.debugShow(QStringLiteral("running"), QStringLiteral("moonlight"), {});
             notifier.demo(view);
         }
+        if (view.startsWith(QLatin1String("moonlight"))) {
+            moonlight.demoShow(view);
+            window->setProperty("debugView", view);
+        }
         if (view.startsWith(QLatin1String("overlay"))) {
             window->setProperty("debugView", view);
             life.debugShow(QStringLiteral("running"), QStringLiteral("moonlight"), {});
+            if (view.startsWith(QLatin1String("overlay-stream")))
+                life.debugSession({{"host", "demo-gaming"}, {"hostName", "Gaming PC"}, {"appId", 4},
+                                   {"appName", "Ember Coast"}, {"art", "image://icon/background/boxart-ember-coast"}});
             overlay.show();
         }
         window->show();
@@ -251,6 +267,8 @@ int main(int argc, char *argv[])
                      [window] { QMetaObject::invokeMethod(window, "openBluetooth"); });
     QObject::connect(&control, &ControlService::openNetworkRequested, window,
                      [window] { QMetaObject::invokeMethod(window, "openNetwork"); });
+    QObject::connect(&control, &ControlService::openMoonlightRequested, window,
+                     [window] { QMetaObject::invokeMethod(window, "openMoonlight"); });
 
     // Idle screen: only over the launcher itself; any input (window or evdev) wakes it.
     window->installEventFilter(&idle);

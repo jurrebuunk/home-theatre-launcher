@@ -1,6 +1,11 @@
 #include "LifecycleController.h"
 
 #include <QDateTime>
+#include <QDir>
+#include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 #include <QLoggingCategory>
 #include <QRegularExpression>
@@ -81,6 +86,8 @@ void LifecycleController::setState(State s)
         return "";
     }() << m_app.id;
     m_state = s;
+    if (s == State::Launcher)
+        setSession({}, {});
     if (s == State::Running)
         m_runningSince = QDateTime::currentMSecsSinceEpoch();
     else if (s != State::Closing)
@@ -110,6 +117,16 @@ void LifecycleController::startup()
         }
         qCInfo(lcLife) << "adopting running app" << adopt;
         m_app = *m_config->app(adopt);
+        QFile f(sessionFile());
+        if (f.open(QIODevice::ReadOnly)) {
+            const QJsonObject o = QJsonDocument::fromJson(f.readAll()).object();
+            if (o.value("id").toString() == adopt) {
+                QStringList args;
+                for (const auto &a : o.value("arguments").toArray())
+                    args << a.toString();
+                setSession(args, o.value("session").toObject().toVariantMap());
+            }
+        }
         for (int i = 0; i < m_config->apps().size(); ++i)
             if (m_config->apps().at(i).id == adopt)
                 m_lastIndex = i;
@@ -146,6 +163,38 @@ void LifecycleController::stopStraySystemUnits()
 
 void LifecycleController::launch(const QString &id)
 {
+    launchSession(id, {}, {});
+}
+
+QString LifecycleController::sessionFile()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::RuntimeLocation)
+        + QStringLiteral("/home-theatre-launcher-session.json");
+}
+
+void LifecycleController::setSession(const QStringList &arguments, const QVariantMap &session)
+{
+    m_sessionArguments = arguments;
+    m_session = session;
+    if (session.isEmpty()) {
+        m_app.label = m_config->app(m_app.id) ? m_config->app(m_app.id)->label : m_app.label;
+        QFile::remove(sessionFile());
+        return;
+    }
+    m_app.command += arguments;
+    if (!session.value("appName").toString().isEmpty())
+        m_app.label = session.value("appName").toString();
+    // Kept so a restarted launcher still knows what is streaming.
+    QFile f(sessionFile());
+    if (f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        f.write(QJsonDocument(QJsonObject{{"id", m_app.id},
+                                          {"arguments", QJsonArray::fromStringList(arguments)},
+                                          {"session", QJsonObject::fromVariantMap(session)}})
+                    .toJson(QJsonDocument::Compact));
+}
+
+void LifecycleController::launchSession(const QString &id, const QStringList &arguments, const QVariantMap &session)
+{
     if (m_state != State::Launcher)
         return;
     const AppSpec *spec = m_config->app(id);
@@ -164,6 +213,7 @@ void LifecycleController::launch(const QString &id)
     }
 
     m_app = *spec;
+    setSession(arguments, session);
     m_errorKind = ErrorKind::None;
     m_pendingError = ErrorKind::None;
     m_errorReason.clear();
@@ -516,8 +566,10 @@ void LifecycleController::retry()
     if (m_state != State::Error || m_errorKind != ErrorKind::StartFailed)
         return;
     const QString id = m_app.id;
+    const QStringList arguments = m_sessionArguments;
+    const QVariantMap session = m_session;
     setState(State::Launcher);
-    launch(id);
+    launchSession(id, arguments, session);
 }
 
 void LifecycleController::stopAgain()
@@ -551,5 +603,12 @@ void LifecycleController::debugShow(const QString &state, const QString &appId, 
                                               {"error", State::Error}};
     m_state = states.value(state, State::Launcher);
     m_runningSince = m_state == State::Running ? QDateTime::currentMSecsSinceEpoch() - 84 * 60 * 1000 : 0;
+    Q_EMIT changed();
+}
+
+void LifecycleController::debugSession(const QVariantMap &session)
+{
+    m_session = session;
+    m_app.label = session.value("appName").toString();
     Q_EMIT changed();
 }

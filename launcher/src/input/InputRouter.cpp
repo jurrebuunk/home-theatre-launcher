@@ -377,6 +377,8 @@ void InputRouter::handleEvent(Device &d, int type, int code, int value)
                 Q_EMIT navigate(Delete);
             else if (code == BTN_START)
                 Q_EMIT navigate(Menu);
+            else if (code == BTN_NORTH)
+                Q_EMIT navigate(Alt);
         }
         return;
     }

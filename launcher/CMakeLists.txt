@@ -60,6 +60,8 @@ qt_add_library(htl_core STATIC
     src/ui/OverlayState.cpp src/ui/OverlayState.h
     src/audio/SoundManager.cpp src/audio/SoundManager.h
     src/notify/Notifier.cpp src/notify/Notifier.h
+    src/moonlight/MoonlightProtocol.cpp src/moonlight/MoonlightProtocol.h
+    src/moonlight/MoonlightLibrary.cpp src/moonlight/MoonlightLibrary.h
     "${PROTO_HEADER}" "${PROTO_CODE}"
 )
 target_include_directories(htl_core PUBLIC src "${PROTO_DIR}")
@@ -120,6 +122,10 @@ qt_add_qml_module(home-theatre-launcher
         qml/SoundView.qml
         qml/Indicators.qml
         qml/BatteryValue.qml
+        qml/MoonlightView.qml
+        qml/BoxArtTile.qml
+        qml/HostRow.qml
+        qml/StreamPairing.qml
 )
 
 # Icons live at :/icons, :/apps, :/backgrounds and :/glyphs.
@@ -144,7 +150,7 @@ install(TARGETS home-theatre-launcher RUNTIME DESTINATION bin)
 
 if(HTL_BUILD_TESTS)
     enable_testing()
-    foreach(t tst_config tst_lifecycle tst_input tst_network tst_idle tst_sound)
+    foreach(t tst_config tst_lifecycle tst_input tst_network tst_idle tst_sound tst_moonlight)
         qt_add_executable(${t} tests/${t}.cpp)
         target_link_libraries(${t} PRIVATE htl_core Qt6::Test)
         add_test(NAME ${t} COMMAND ${t})

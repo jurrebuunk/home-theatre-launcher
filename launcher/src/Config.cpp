@@ -44,6 +44,7 @@ QVariantMap AppSpec::toVariant() const
         {QStringLiteral("label"), label},
         {QStringLiteral("description"), description},
         {QStringLiteral("icon"), icon},
+        {QStringLiteral("type"), type},
     };
 }
 
@@ -104,6 +105,7 @@ void Config::setDefaults()
         {"enable", true}, {"timeoutMs", 4000}, {"batteryLow", 20}, {"batteryCritical", 10},
         {"criticalRepeatMinutes", 5},
     };
+    m_moonlight = {{"discovery", true}, {"refreshSeconds", 5}, {"pairTimeout", 180}};
     m_overlay = {
         {"enable", true}, {"gamepadCodes", QStringList{"BTN_MODE"}}, {"keyboardCodes", QStringList{"KEY_HOMEPAGE"}},
         {"dim", 0.5}, {"grabControllers", true},
@@ -190,6 +192,9 @@ bool Config::loadJson(const QByteArray &json)
     m_overlay = merged(m_overlay, behavior.value("overlay").toMap());
     m_sound = merged(m_sound, behavior.value("sound").toMap());
     m_notifications = merged(m_notifications, behavior.value("notifications").toMap());
+    m_moonlight = merged(m_moonlight, behavior.value("moonlight").toMap());
+    if (m_moonlight.value("refreshSeconds").toInt() <= 0 || m_moonlight.value("pairTimeout").toInt() <= 0)
+        m_errors << QStringLiteral("behavior.moonlight: refreshSeconds and pairTimeout must be > 0");
     if (m_sound.value("step").toInt() <= 0 || m_sound.value("maxVolume").toInt() <= 0 || m_sound.value("maxVolume").toInt() > 150)
         m_errors << QStringLiteral("behavior.sound: step must be > 0 and maxVolume in 1..150");
     if (m_notifications.value("batteryCritical").toInt() > m_notifications.value("batteryLow").toInt())
@@ -239,6 +244,8 @@ bool Config::loadJson(const QByteArray &json)
         a.label = o.value("label").toString();
         a.description = o.value("description").toString();
         a.icon = o.value("icon").toString();
+        a.type = o.value("type").toString(QStringLiteral("app"));
+        a.streamArguments = toStringList(o.value("streamArguments"));
         a.command = toStringList(o.value("command"));
         const QJsonObject env = o.value("environment").toObject();
         for (auto it = env.begin(); it != env.end(); ++it)
@@ -280,6 +287,8 @@ bool Config::loadJson(const QByteArray &json)
             m_errors << where + QStringLiteral(": unknown builtin icon '%1'").arg(a.icon);
         if (a.label.isEmpty())
             m_errors << where + QStringLiteral(": empty label");
+        if (a.type != QLatin1String("app") && a.type != QLatin1String("moonlight"))
+            m_errors << where + QStringLiteral(": type must be app or moonlight");
         if (a.command.isEmpty() || a.command.first().isEmpty())
             m_errors << where + QStringLiteral(": empty command");
         else if (!a.command.first().startsWith(QLatin1Char('/')))
@@ -355,6 +364,7 @@ void Config::loadDemoApps()
     a.label = "Moonlight";
     a.description = "Stream games from the PC";
     a.icon = "builtin:stream";
+    a.type = "moonlight";
     a.command = {"/bin/true"};
     a.readyAnyWindow = true;
     a.exitOnWindowClosed = true;
@@ -368,6 +378,14 @@ void Config::loadDemoApps()
     b.readyAnyWindow = true;
     b.exitOnWindowClosed = true;
     m_apps << b;
+}
+
+const AppSpec *Config::moonlightApp() const
+{
+    for (const auto &a : m_apps)
+        if (a.type == QLatin1String("moonlight"))
+            return &a;
+    return nullptr;
 }
 
 const AppSpec *Config::app(const QString &id) const

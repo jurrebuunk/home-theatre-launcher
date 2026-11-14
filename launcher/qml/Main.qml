@@ -9,8 +9,10 @@ Window {
     color: overlayMode ? "transparent" : Theme.background
     title: "Home Theatre"
 
-    // "" (home), "bluetooth", "network" or "sound"
+    // "" (home), "bluetooth", "network", "sound" or "moonlight"
     property string panel: ""
+    // Home tile to focus when a panel opened from a tile closes (-1: last launched)
+    property int returnIndex: -1
     // Notifications / volume drawn inside this window (windowed, screenshots)
     // instead of on their own click-through surface.
     property bool inlineIndicators: true
@@ -34,6 +36,13 @@ Window {
     function openBluetooth() { openPanel("bluetooth") }
     function openNetwork() { openPanel("network") }
     function openSound() { openPanel("sound") }
+    function openMoonlight(index) {
+        const i = Cfg.apps.findIndex(a => a.type === "moonlight")
+        if (i < 0)
+            return
+        returnIndex = index === undefined ? i : index
+        openPanel("moonlight")
+    }
     function closePanel() {
         panel = ""
         Qt.callLater(restoreFocus)
@@ -45,8 +54,10 @@ Window {
             return // ErrorView focuses itself
         if (panel !== "")
             panelLoader.item && panelLoader.item.focusDefault()
-        else
-            home.focusTile(Life.lastIndex)
+        else {
+            home.focusTile(returnIndex >= 0 ? returnIndex : Life.lastIndex)
+            returnIndex = -1
+        }
     }
 
     onDebugViewChanged: {
@@ -56,6 +67,8 @@ Window {
             panel = "network"
         else if (debugView === "sound")
             panel = "sound"
+        else if (debugView.startsWith("moonlight"))
+            panel = "moonlight"
     }
 
     FocusScope {
@@ -71,6 +84,7 @@ Window {
             onOpenBluetooth: window.openBluetooth()
             onOpenNetwork: window.openNetwork()
             onOpenSound: window.openSound()
+            onOpenMoonlight: (index) => window.openMoonlight(index)
         }
 
         Loader {
@@ -79,7 +93,8 @@ Window {
             active: window.panel !== ""
             visible: !window.overlayMode
             sourceComponent: window.panel === "bluetooth" ? btComponent
-                           : window.panel === "sound" ? soundComponent : netComponent
+                           : window.panel === "sound" ? soundComponent
+                           : window.panel === "moonlight" ? moonlightComponent : netComponent
             onLoaded: Qt.callLater(() => { item.forceActiveFocus(); item.focusDefault() })
         }
         Component {
@@ -92,6 +107,13 @@ Window {
         Component {
             id: soundComponent
             SoundView {
+                onCloseRequested: window.closePanel()
+            }
+        }
+        Component {
+            id: moonlightComponent
+            MoonlightView {
+                debugView: window.debugView
                 onCloseRequested: window.closePanel()
             }
         }
@@ -133,7 +155,7 @@ Window {
             sourceComponent: OverlayView {}
             onLoaded: {
                 item.forceActiveFocus()
-                const sub = window.debugView.replace(/^overlay-?/, "")
+                const sub = window.debugView.replace(/^overlay-?/, "").replace(/^stream-?/, "").replace(/^stop$/, "close")
                 item.open(sub === "" ? "main" : sub)
             }
         }

@@ -1,4 +1,5 @@
 #include "ControlService.h"
+#include "moonlight/MoonlightLibrary.h"
 
 #include "idle/IdleMonitor.h"
 #include "lifecycle/LifecycleController.h"
@@ -175,4 +176,67 @@ QString ControlService::SetIpv4(const QString &name, const QString &method, cons
                                 const QString &gateway, const QString &dns)
 {
     return m_network->setIpv4(name, method, address, gateway, dns);
+}
+
+void ControlService::OpenMoonlight()
+{
+    m_idle->activity();
+    Q_EMIT openMoonlightRequested();
+}
+
+QStringList ControlService::MoonlightHosts()
+{
+    QStringList out;
+    if (m_moonlight)
+        for (const QVariant &v : m_moonlight->hosts()) {
+            const QVariantMap h = v.toMap();
+            out << QStringLiteral("%1 %2 %3").arg(h.value("uuid").toString(), h.value("state").toString(),
+                                                 h.value("name").toString());
+        }
+    return out;
+}
+
+QStringList ControlService::MoonlightFound()
+{
+    QStringList out;
+    if (m_moonlight)
+        for (const QVariant &v : m_moonlight->found()) {
+            const QVariantMap h = v.toMap();
+            out << QStringLiteral("%1 %2").arg(h.value("address").toString(), h.value("name").toString());
+        }
+    return out;
+}
+
+QStringList ControlService::MoonlightApps()
+{
+    QStringList out;
+    if (m_moonlight)
+        for (const QVariant &v : m_moonlight->apps()) {
+            const QVariantMap a = v.toMap();
+            out << QStringLiteral("%1 %2%3").arg(a.value("id").toString(), a.value("name").toString(),
+                                                a.value("running").toBool() ? QStringLiteral(" *") : QString());
+        }
+    return out;
+}
+
+QString ControlService::MoonlightStream(const QString &host, const QString &app)
+{
+    if (!m_moonlight || !m_moonlight->available())
+        return QStringLiteral("no moonlight app configured");
+    m_idle->activity();
+    return m_moonlight->streamByName(host, app);
+}
+
+void ControlService::MoonlightStopPlaying()
+{
+    if (m_moonlight)
+        m_moonlight->stopPlaying();
+}
+
+QString ControlService::Session()
+{
+    const QVariantMap s = m_life->session();
+    if (s.isEmpty())
+        return {};
+    return s.value("appName").toString() + QLatin1Char('@') + s.value("hostName").toString();
 }

@@ -11,6 +11,8 @@ struct AppSpec {
     QString label;
     QString description;
     QString icon;                // absolute path or empty
+    QString type = QStringLiteral("app"); // app | moonlight (tile opens the Moonlight library)
+    QStringList streamArguments; // moonlight: extra `moonlight stream` options
     QStringList command;         // argv, argv[0] absolute
     QStringList environment;     // KEY=VALUE
     QString workingDirectory;
@@ -55,6 +57,7 @@ class Config : public QObject
     Q_PROPERTY(QVariantMap idle READ idle CONSTANT)
     Q_PROPERTY(QVariantMap overlay READ overlay CONSTANT)
     Q_PROPERTY(QVariantMap sound READ sound CONSTANT)
+    Q_PROPERTY(QVariantMap moonlight READ moonlight CONSTANT)
     Q_PROPERTY(QList<int> selectKeys READ selectKeys CONSTANT)
     Q_PROPERTY(QList<int> backKeys READ backKeys CONSTANT)
     Q_PROPERTY(QStringList errors READ errors CONSTANT)
@@ -86,6 +89,9 @@ public:
     QVariantMap overlay() const { return m_overlay; }
     QVariantMap sound() const { return m_sound; }
     QVariantMap notifications() const { return m_notifications; }
+    QVariantMap moonlight() const { return m_moonlight; }
+    // The first app of type moonlight, or null.
+    const AppSpec *moonlightApp() const;
     QList<int> selectKeys() const { return m_selectKeys; }
     QList<int> backKeys() const { return m_backKeys; }
     QStringList errors() const { return m_errors; }
@@ -100,7 +106,7 @@ private:
 
     QList<AppSpec> m_apps;
     QVariantMap m_colors, m_fonts, m_layout, m_input, m_bluetooth, m_internet, m_clock, m_network, m_idle, m_overlay, m_sound,
-        m_notifications;
+        m_notifications, m_moonlight;
     QList<int> m_selectKeys, m_backKeys;
     QStringList m_errors;
 };

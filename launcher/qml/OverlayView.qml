@@ -1,11 +1,14 @@
 import QtQuick
 
 // In-app menu over a running app: the app keeps running (and moving) behind
-// a dim layer; a side panel offers Resume, Bluetooth, Network and Close app.
+// a dim layer; a side panel offers Resume, Bluetooth, Network, Sound and
+// Close app. For a Moonlight stream it is about the game: Stop playing quits
+// it on the host, Disconnect leaves it running there.
 FocusScope {
     id: root
     property string page: "main" // main | bluetooth | network | sound | close
     property int runtime: 0      // minutes the app has been running
+    readonly property bool stream: !!Life.session.host
 
     function open(p) {
         page = p || "main"
@@ -114,19 +117,42 @@ FocusScope {
                         id: appIcon
                         anchors.left: parent.left
                         anchors.verticalCenter: parent.verticalCenter
+                        visible: !cover.visible
                         isApp: true
                         appPath: Life.appIcon
                         size: Theme.px(48)
                         tint: Theme.accent
                     }
-                    Label {
-                        anchors.left: appIcon.right
+                    // A stream shows the game's box art instead of the app icon.
+                    Image {
+                        id: cover
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: root.stream && status === Image.Ready
+                        width: Theme.px(54)
+                        height: Theme.px(72)
+                        source: root.stream ? (Life.session.art || "") : ""
+                        sourceSize: Qt.size(width, height)
+                        fillMode: Image.PreserveAspectCrop
+                    }
+                    Column {
+                        anchors.left: cover.visible ? cover.right : appIcon.right
                         anchors.leftMargin: Theme.px(26)
                         anchors.right: runtimeRow.left
                         anchors.rightMargin: Theme.px(20)
                         anchors.verticalCenter: parent.verticalCenter
-                        font.pixelSize: Theme.px(34)
-                        text: Life.appLabel
+                        Label {
+                            width: parent.width
+                            font.pixelSize: Theme.px(34)
+                            text: Life.appLabel
+                        }
+                        Label {
+                            visible: root.stream
+                            width: parent.width
+                            role: "supporting"
+                            color: Theme.muted
+                            text: "on " + (Life.session.hostName || "")
+                        }
                     }
                     Row {
                         id: runtimeRow
@@ -179,7 +205,8 @@ FocusScope {
                     Item { width: 1; height: Theme.px(10) }
                     OverlayButton {
                         id: closeButton
-                        text: "Close app"; iconName: "power"; iconTint: Theme.error
+                        text: root.stream ? "Stop playing" : "Close app"
+                        iconName: root.stream ? "stop" : "power"; iconTint: Theme.error
                         KeyNavigation.up: soundButton.visible ? soundButton : netButton
                         onActivated: root.go("close")
                     }
@@ -209,20 +236,46 @@ FocusScope {
                     anchors.verticalCenterOffset: -Theme.px(40)
                     width: parent.width
                     spacing: Theme.px(12)
-                    Icon { name: "power"; size: Theme.px(96); tint: Theme.error }
+                    Icon { name: root.stream ? "stop" : "power"; size: Theme.px(96); tint: Theme.error }
                     Item { width: 1; height: Theme.px(28) }
-                    Label { role: "display"; text: "Close " + Life.appLabel + "?"; width: parent.width }
+                    Label {
+                        role: "display"
+                        text: (root.stream ? "Stop playing " : "Close ") + Life.appLabel + "?"
+                        width: parent.width
+                        wrapMode: Text.WordWrap
+                        elide: Text.ElideNone
+                    }
+                    Label {
+                        visible: root.stream
+                        width: parent.width
+                        wrapMode: Text.WordWrap
+                        role: "supporting"
+                        color: Theme.muted
+                        text: Life.appLabel + " quits on " + (Life.session.hostName || "the host")
+                              + ". Disconnect leaves it running there."
+                    }
                     Item { width: 1; height: Theme.px(16) }
                     OverlayButton {
                         id: confirmClose
-                        text: "Close"; iconName: "power"; iconTint: Theme.text
+                        text: root.stream ? "Stop playing" : "Close"
+                        iconName: root.stream ? "stop" : "power"; iconTint: Theme.text
+                        KeyNavigation.down: root.stream ? disconnect : keepPlaying
+                        // Stops the app (and for a stream the game on the host); the menu closes with it.
+                        onActivated: root.stream ? Moonlight.stopPlaying() : Life.home()
+                    }
+                    OverlayButton {
+                        id: disconnect
+                        visible: root.stream
+                        text: "Disconnect"
+                        iconName: "link-off"; iconTint: Theme.text
+                        KeyNavigation.up: confirmClose
                         KeyNavigation.down: keepPlaying
-                        onActivated: Life.home() // stops the app; the menu closes with it
+                        onActivated: Life.home()
                     }
                     OverlayButton {
                         id: keepPlaying
                         text: "Keep playing"; iconName: "play"; iconTint: Theme.text
-                        KeyNavigation.up: confirmClose
+                        KeyNavigation.up: root.stream ? disconnect : confirmClose
                         onActivated: Overlay.close()
                     }
                 }

@@ -28,6 +28,8 @@ declare -A ui=(
   [volume]=volume_up [volume-off]=volume_off [minus]=remove [arrow-right]=arrow_forward
   [arrow-down]=arrow_downward [link-off]=link_off [tv]=tv
   [battery-high]=battery_horiz_075 [battery-mid]=battery_horiz_050 [battery-low]=battery_horiz_000
+  [star]=star [star-filled]=star-fill [moon]=bedtime [stop]=stop [monitor]=desktop_windows
+  [chevron-down]=keyboard_arrow_down
 )
 declare -A apps=(
   [stream]=smart_display [tv]=tv [android]=android [gamepad]=stadia_controller

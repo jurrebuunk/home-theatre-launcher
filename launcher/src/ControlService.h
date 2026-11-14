@@ -9,6 +9,7 @@ class NetworkSettings;
 class OverlayState;
 class SoundManager;
 class Notifier;
+class MoonlightLibrary;
 
 // Session bus API nl.jurrebuunk.HomeTheatre1 at /nl/jurrebuunk/HomeTheatre,
 // used by tests and automation (e.g. a compositor keybinding for Home).
@@ -33,6 +34,7 @@ public:
     bool overlayOpen() const;
     int volume() const;
     void setSound(SoundManager *sound, Notifier *notifier) { m_sound = sound; m_notifier = notifier; }
+    void setMoonlight(MoonlightLibrary *moonlight) { m_moonlight = moonlight; }
 
 public Q_SLOTS:
     Q_SCRIPTABLE void Launch(const QString &id);
@@ -50,6 +52,20 @@ public Q_SLOTS:
     // Titles of the visible notifications, newest first.
     Q_SCRIPTABLE QStringList Notifications();
     Q_SCRIPTABLE void Wake();
+    // Moonlight library
+    Q_SCRIPTABLE void OpenMoonlight();
+    // "uuid state name" per paired host (state: checking, online, offline, waking)
+    Q_SCRIPTABLE QStringList MoonlightHosts();
+    // "address name" per host found on the network (unpaired)
+    Q_SCRIPTABLE QStringList MoonlightFound();
+    // "id name" per app of the selected host, "*" appended to the running one
+    Q_SCRIPTABLE QStringList MoonlightApps();
+    // Stream an app (host by name or uuid); returns an error or "".
+    Q_SCRIPTABLE QString MoonlightStream(const QString &host, const QString &app);
+    // End the stream and quit the game on the host.
+    Q_SCRIPTABLE void MoonlightStopPlaying();
+    // "appName@hostName" of the running stream, "" otherwise.
+    Q_SCRIPTABLE QString Session();
     // "name kind" per interface, e.g. "eth0 ethernet"
     Q_SCRIPTABLE QStringList NetworkInterfaces();
     Q_SCRIPTABLE QStringList WifiNetworks();
@@ -65,6 +81,7 @@ Q_SIGNALS:
     Q_SCRIPTABLE void StateChanged(const QString &state);
     void openBluetoothRequested();
     void openNetworkRequested();
+    void openMoonlightRequested();
 
 private:
     LifecycleController *m_life;
@@ -73,4 +90,5 @@ private:
     OverlayState *m_overlay;
     SoundManager *m_sound = nullptr;
     Notifier *m_notifier = nullptr;
+    MoonlightLibrary *m_moonlight = nullptr;
 };
