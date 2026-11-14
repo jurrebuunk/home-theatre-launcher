@@ -268,7 +268,7 @@ int main(int argc, char *argv[])
     QObject::connect(&control, &ControlService::openNetworkRequested, window,
                      [window] { QMetaObject::invokeMethod(window, "openNetwork"); });
     QObject::connect(&control, &ControlService::openMoonlightRequested, window,
-                     [window] { QMetaObject::invokeMethod(window, "openMoonlight"); });
+                     [window] { QMetaObject::invokeMethod(window, "openMoonlightLibrary"); });
 
     // Idle screen: only over the launcher itself; any input (window or evdev) wakes it.
     window->installEventFilter(&idle);

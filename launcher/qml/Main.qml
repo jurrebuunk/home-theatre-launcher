@@ -40,9 +40,10 @@ Window {
         const i = Cfg.apps.findIndex(a => a.type === "moonlight")
         if (i < 0)
             return
-        returnIndex = index === undefined ? i : index
+        returnIndex = index >= 0 ? index : i
         openPanel("moonlight")
     }
+    function openMoonlightLibrary() { openMoonlight(-1) } // control API
     function closePanel() {
         panel = ""
         Qt.callLater(restoreFocus)
