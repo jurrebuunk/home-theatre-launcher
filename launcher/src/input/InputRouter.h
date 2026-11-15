@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QSet>
 #include <QTimer>
+#include <QVariant>
 
 class Config;
 class QFileSystemWatcher;
@@ -37,6 +38,8 @@ public:
     // Pure helpers (unit tested)
     static Kind classify(bool hasGamepadButtons, bool hasLetters, bool hasRemoteKeys);
     static QString glyphsForVendor(int vendor, const QString &fallback);
+    // The id of the first behavior.input.devices entry matching this device, or "".
+    static QString customDevice(const QVariantList &devices, int vendor, int product, const QString &name);
     static int axisDirection(double normX, double normY, double deadzone);
     // "BTN_SELECT+BTN_START" → {codes}; unknown names make the whole entry invalid (empty).
     static QList<QSet<int>> parseCombos(const QStringList &entries);
@@ -103,6 +106,7 @@ private:
     bool m_confirmSouth = true;
     double m_deadzone = 0.5;
     QString m_defaultGlyphs;
+    QVariantList m_customDevices;
 
     QString m_lastDevice;
     bool m_navigationEnabled = true;

@@ -52,6 +52,7 @@ InputRouter::InputRouter(const Config *config, QObject *parent)
     m_deadzone = input.value("stickDeadzone").toDouble();
     m_defaultGlyphs = input.value("defaultGlyphs").toString();
     m_lastDevice = m_defaultGlyphs;
+    m_customDevices = input.value("devices").toList();
     m_repeatDelay = input.value("repeatDelayMs").toInt();
     m_repeatInterval = input.value("repeatIntervalMs").toInt();
     const QVariantMap overlay = config->overlay();
@@ -102,6 +103,24 @@ QString InputRouter::glyphsForVendor(int vendor, const QString &fallback)
     if (vendor == 0x054c)
         return QStringLiteral("playstation");
     return fallback == QLatin1String("playstation") ? fallback : QStringLiteral("xbox");
+}
+
+QString InputRouter::customDevice(const QVariantList &devices, int vendor, int product, const QString &name)
+{
+    for (const QVariant &v : devices) {
+        const QVariantMap d = v.toMap();
+        const QString wantVendor = d.value("vendor").toString();
+        const QString wantProduct = d.value("product").toString();
+        const QString wantName = d.value("name").toString();
+        if (!wantVendor.isEmpty() && wantVendor.toInt(nullptr, 16) != vendor)
+            continue;
+        if (!wantProduct.isEmpty() && wantProduct.toInt(nullptr, 16) != product)
+            continue;
+        if (!wantName.isEmpty() && !name.contains(wantName, Qt::CaseInsensitive))
+            continue;
+        return d.value("id").toString();
+    }
+    return QString();
 }
 
 int InputRouter::axisDirection(double x, double y, double deadzone)
@@ -242,6 +261,11 @@ void InputRouter::openDevice(const QString &path)
     d->glyphs = d->kind == Kind::Gamepad ? glyphsForVendor(libevdev_get_id_vendor(dev), m_defaultGlyphs)
         : d->kind == Kind::Keyboard      ? QStringLiteral("keyboard")
                                          : QStringLiteral("remote");
+    // Custom prompts only change the glyphs; navigation still follows the kind.
+    const QString custom = customDevice(m_customDevices, libevdev_get_id_vendor(dev), libevdev_get_id_product(dev),
+                                        QString::fromUtf8(libevdev_get_name(dev)));
+    if (!custom.isEmpty())
+        d->glyphs = custom;
     applyGrab(*d);
     d->notifier = new QSocketNotifier(fd, QSocketNotifier::Read, this);
     connect(d->notifier, &QSocketNotifier::activated, this, [this, path] { readDevice(path); });

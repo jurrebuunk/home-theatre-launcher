@@ -203,6 +203,34 @@ behavior.overlay = {
 Combos fire when they are released, so the app never keeps a stuck button.
 `ToggleOverlay()` on the control API can back a compositor keybinding too.
 
+### Custom button prompts
+
+Xbox, PlayStation, keyboard and remote prompts are built in. For any other
+remote or controller, add a custom input type with your own pictures (PNG or
+SVG). It is matched by USB vendor/product id (in `/proc/bus/input/devices`)
+and/or part of the device name:
+
+```nix
+behavior.input.devices.air-remote = {
+  vendor = "1915";
+  product = "1025";
+  base = "remote";  # prompts for actions without a picture (hidden if the remote lacks them)
+  invert = true;    # dark artwork, light on the dark theme
+  glyphs = {
+    select = ./remote/ok.png;
+    back = ./remote/back.png;
+    home = ./remote/home.png;
+    menu = ./remote/menu.png;       # confirms text entry
+    volumeDown = ./remote/volume-down.png;
+    volumeUp = ./remote/volume-up.png; # with volumeDown: a "Volume" prompt on the Sound screen
+  };
+};
+```
+
+Actions are `select`, `back`, `home`, `delete`, `menu`, `alt`, `volumeUp` and
+`volumeDown`. Only the prompts change: navigation still follows what the
+device is (controller, keyboard or remote).
+
 ### Moonlight
 
 An app with `type = "moonlight"` (the `lib.apps.moonlight` preset sets it)

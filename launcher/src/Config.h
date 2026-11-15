@@ -104,6 +104,7 @@ private:
     void setDefaults();
     void resolveKeys();
     void validateIdle();
+    void validateDevices();
     void validateBackground(const QString &where, const QVariantMap &bg);
 
     QList<AppSpec> m_apps;

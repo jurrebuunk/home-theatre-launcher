@@ -23,6 +23,17 @@ private Q_SLOTS:
         QCOMPARE(InputRouter::glyphsForVendor(0x1234, "playstation"), QStringLiteral("playstation"));
         QCOMPARE(InputRouter::glyphsForVendor(0x1234, "keyboard"), QStringLiteral("xbox"));
     }
+    void customDevices()
+    {
+        const QVariantList devices{
+            QVariantMap{{"id", "air"}, {"vendor", "1915"}, {"product", "1025"}},
+            QVariantMap{{"id", "named"}, {"name", "media remote"}},
+        };
+        QCOMPARE(InputRouter::customDevice(devices, 0x1915, 0x1025, "XING WEI 2.4G"), QStringLiteral("air"));
+        QCOMPARE(InputRouter::customDevice(devices, 0x1915, 0x1026, "x"), QString());
+        QCOMPARE(InputRouter::customDevice(devices, 0x1234, 0x1, "Some Media Remote Keys"), QStringLiteral("named"));
+        QCOMPARE(InputRouter::customDevice({}, 0x1915, 0x1025, "x"), QString());
+    }
     void stick()
     {
         QCOMPARE(InputRouter::axisDirection(0.1, -0.2, 0.5), int(InputRouter::None));

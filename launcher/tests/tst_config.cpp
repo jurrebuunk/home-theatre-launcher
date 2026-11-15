@@ -1,5 +1,6 @@
 #include "Config.h"
 
+#include <QCoreApplication>
 #include <QTest>
 
 class TestConfig : public QObject
@@ -26,6 +27,18 @@ private Q_SLOTS:
         QCOMPARE(c.layout().value("moonlight").toMap().value("cardHeight").toInt(), 480);
     }
 
+    void customDevice()
+    {
+        // Any existing absolute file will do as a picture.
+        const QByteArray file = QCoreApplication::applicationFilePath().toUtf8();
+        Config c;
+        QVERIFY2(c.loadJson(wrap({}, R"("behavior":{"input":{"devices":[{"id":"air","vendor":"1915","product":"1025",
+            "invert":true,"glyphs":{"select":")" + file + R"("}}]}})")),
+                 qPrintable(c.errors().join('\n')));
+        const QVariantMap d = c.input().value("devices").toList().value(0).toMap();
+        QCOMPARE(d.value("id").toString(), QStringLiteral("air"));
+        QCOMPARE(d.value("glyphs").toMap().value("select").toString(), QString::fromUtf8(file));
+    }
     void menuBackground()
     {
         Config c;
@@ -104,6 +117,12 @@ private Q_SLOTS:
         QTest::newRow("card height") << wrap({}, R"("appearance":{"moonlight":{"cardHeight":20}})") << "cardHeight";
         QTest::newRow("box art dim") << wrap({}, R"("appearance":{"moonlight":{"boxArtBackground":{"dim":2}}})") << "boxArtBackground.dim";
         QTest::newRow("overlay dim") << wrap({}, R"("behavior":{"overlay":{"dim":1.5}})") << "overlay.dim";
+        QTest::newRow("device id") << wrap({}, R"("behavior":{"input":{"devices":[{"id":"xbox","vendor":"1915"}]}})") << "built in";
+        QTest::newRow("device match") << wrap({}, R"("behavior":{"input":{"devices":[{"id":"r"}]}})") << "match on vendor";
+        QTest::newRow("device vendor") << wrap({}, R"("behavior":{"input":{"devices":[{"id":"r","vendor":"19"}]}})") << "4 hex digits";
+        QTest::newRow("device base") << wrap({}, R"("behavior":{"input":{"devices":[{"id":"r","name":"x","base":"wii"}]}})") << "devices.r.base";
+        QTest::newRow("device action") << wrap({}, R"("behavior":{"input":{"devices":[{"id":"r","name":"x","glyphs":{"jump":"/x.png"}}]}})") << "unknown action";
+        QTest::newRow("device glyph") << wrap({}, R"("behavior":{"input":{"devices":[{"id":"r","name":"x","glyphs":{"select":"/nonexistent.png"}}]}})") << "does not exist";
         QTest::newRow("missing icon") << wrap(R"({"id":"a","label":"A","command":["/x"],"icon":"/nonexistent.svg"})") << "does not exist";
     }
     void rejects()

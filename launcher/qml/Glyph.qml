@@ -1,13 +1,16 @@
 import QtQuick
 
-// Button prompt for an action ("select", "back", "home", "delete", "menu", "alt") on the last-used
-// device: real Xbox / PlayStation glyphs, key caps for keyboard and remote.
+// Button prompt for an action ("select", "back", "home", "delete", "menu", "alt", "volumeUp",
+// "volumeDown") on the last-used device: real Xbox / PlayStation glyphs, key caps for keyboard and
+// remote, or the pictures of a custom device (behavior.input.devices), which fall back to its base.
 Item {
     id: root
     property string action: "select"
     property int size: Theme.px(40)
 
-    readonly property string device: Input.lastDevice
+    readonly property var custom: (Cfg.input.devices || []).find(d => d.id === Input.lastDevice) || null
+    readonly property string customFile: custom && custom.glyphs ? (custom.glyphs[action] || "") : ""
+    readonly property string device: custom ? (custom.base || "remote") : Input.lastDevice
     readonly property bool east: Cfg.input.confirmButton === "east"
     readonly property bool color: Cfg.layout.glyphStyle !== "mono"
     readonly property string gamepadAction: east && action === "select" ? "back"
@@ -40,14 +43,24 @@ Item {
         return ""
     }
     // Remotes have no Delete / Menu buttons: the on-screen keys do that.
-    readonly property bool available: glyphFile !== "" || keyText !== ""
+    readonly property bool available: customFile !== "" || glyphFile !== "" || keyText !== ""
                                       || (device === "playstation" && gamepadAction === "home")
 
-    implicitWidth: keyText !== "" ? keyCap.width : size
+    implicitWidth: customFile === "" && keyText !== "" ? keyCap.width : size
     implicitHeight: size
 
     Image {
-        visible: root.glyphFile !== ""
+        visible: root.customFile !== ""
+        anchors.centerIn: parent
+        width: root.size * 1.2
+        height: width
+        sourceSize: Qt.size(width, height)
+        source: root.customFile !== ""
+                ? "image://icon/file" + root.customFile + (root.custom.invert ? "?invert=1" : "") : ""
+        smooth: true
+    }
+    Image {
+        visible: root.customFile === "" && root.glyphFile !== ""
         anchors.centerIn: parent
         width: root.size * 1.25
         height: width
@@ -57,7 +70,7 @@ Item {
     }
     // The pack has no PS button: a filled disc with a home icon in the same style.
     Rectangle {
-        visible: root.device === "playstation" && root.gamepadAction === "home"
+        visible: root.customFile === "" && root.device === "playstation" && root.gamepadAction === "home"
         anchors.centerIn: parent
         width: root.size * 0.95
         height: width
@@ -72,7 +85,7 @@ Item {
     }
     Rectangle {
         id: keyCap
-        visible: root.keyText !== ""
+        visible: root.customFile === "" && root.keyText !== ""
         anchors.verticalCenter: parent.verticalCenter
         width: keyLabel.implicitWidth + Theme.px(24)
         height: root.size

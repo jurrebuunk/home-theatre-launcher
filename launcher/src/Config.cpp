@@ -94,6 +94,7 @@ void Config::setDefaults()
         {"keys", QVariantMap{{"select", QStringList{"Return", "Enter", "Space", "Select"}},
                              {"back", QStringList{"Escape", "Back", "Backspace"}}}},
         {"defaultGlyphs", "xbox"},
+        {"devices", QVariantList()},
     };
     m_bluetooth = {
         {"enable", true}, {"adapter", QString()}, {"discoveryTimeout", 30},
@@ -237,6 +238,7 @@ bool Config::loadJson(const QByteArray &json)
         m_errors << QStringLiteral("appearance.alignment must be left or center");
 
     validateIdle();
+    validateDevices();
     validateBackground(QStringLiteral("appearance.background"), m_layout.value("background").toMap());
     const QVariantMap panels = m_layout.value("background").toMap().value("panels").toMap();
     if (panels.value("dim").toDouble() > 1 || panels.value("blur").toDouble() > MaxBlur)
@@ -326,6 +328,40 @@ bool Config::loadJson(const QByteArray &json)
 
     resolveKeys();
     return m_errors.isEmpty();
+}
+
+void Config::validateDevices()
+{
+    static const QStringList bases{"xbox", "playstation", "keyboard", "remote"};
+    static const QStringList actions{"select", "back", "home", "delete", "menu", "alt", "volumeUp", "volumeDown"};
+    static const QRegularExpression usbId(QStringLiteral("^[0-9a-fA-F]{4}$"));
+    QSet<QString> ids;
+    for (const QVariant &v : m_input.value("devices").toList()) {
+        const QVariantMap d = v.toMap();
+        const QString id = d.value("id").toString();
+        const QString where = QStringLiteral("behavior.input.devices.%1").arg(id);
+        if (id.isEmpty() || bases.contains(id) || ids.contains(id))
+            m_errors << QStringLiteral("behavior.input.devices: id '%1' is empty, built in or duplicated").arg(id);
+        ids.insert(id);
+        for (const char *k : {"vendor", "product"}) {
+            const QString n = d.value(k).toString();
+            if (!n.isEmpty() && !usbId.match(n).hasMatch())
+                m_errors << QStringLiteral("%1.%2 must be 4 hex digits, e.g. 045e").arg(where, k);
+        }
+        if (d.value("vendor").toString().isEmpty() && d.value("name").toString().isEmpty())
+            m_errors << QStringLiteral("%1: match on vendor (and product) or name").arg(where);
+        if (!bases.contains(d.value("base", QStringLiteral("remote")).toString()))
+            m_errors << QStringLiteral("%1.base must be xbox, playstation, keyboard or remote").arg(where);
+        const QVariantMap glyphs = d.value("glyphs").toMap();
+        for (auto it = glyphs.cbegin(); it != glyphs.cend(); ++it) {
+            if (!actions.contains(it.key()))
+                m_errors << QStringLiteral("%1.glyphs: unknown action '%2'").arg(where, it.key());
+            else if (!it.value().toString().startsWith(QLatin1Char('/')))
+                m_errors << QStringLiteral("%1.glyphs.%2 must be an absolute path").arg(where, it.key());
+            else if (!QFileInfo::exists(it.value().toString()))
+                m_errors << QStringLiteral("%1.glyphs.%2: %3 does not exist").arg(where, it.key(), it.value().toString());
+        }
+    }
 }
 
 void Config::validateIdle()

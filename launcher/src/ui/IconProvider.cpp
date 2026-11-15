@@ -69,6 +69,9 @@ QImage IconProvider::requestImage(const QString &id, QSize *size, const QSize &r
         const QRectF r((target.width() - s.width()) / 2, (target.height() - s.height()) / 2, s.width(), s.height());
         renderer.render(&p, r);
     }
+    // Dark artwork (e.g. custom button glyphs) made light for the dark theme.
+    if (query.queryItemValue(QStringLiteral("invert")) == QLatin1String("1"))
+        img.invertPixels(QImage::InvertRgb);
     if (size)
         *size = img.size();
     return img;

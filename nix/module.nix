@@ -50,6 +50,26 @@ let
     muted = opt types.bool true "Play the video without sound.";
   };
 
+  usbId = types.strMatching "^[0-9a-fA-F]{4}$";
+  glyphActions = [ "select" "back" "home" "delete" "menu" "alt" "volumeUp" "volumeDown" ];
+  deviceModule = {
+    options = {
+      vendor = opt (types.nullOr usbId) null "USB vendor id in hex, e.g. `\"1915\"` (see `lsusb` or /proc/bus/input/devices).";
+      product = opt (types.nullOr usbId) null "USB product id in hex. Needs `vendor`.";
+      name = opt (types.nullOr types.str) null "Part of the input device name (case-insensitive), as an alternative or extra match.";
+      base = opt (types.enum [ "xbox" "playstation" "keyboard" "remote" ]) "remote" "Built-in prompts for actions without a picture; a base without the button hides the prompt.";
+      invert = opt types.bool false "Invert the pictures' colours, for dark artwork on the dark theme.";
+      glyphs = lib.genAttrs glyphActions (action: opt (types.nullOr (types.either types.path (types.strMatching "^/.*"))) null
+        "Picture (PNG or SVG) for the `${action}` prompt.");
+    };
+  };
+
+  deviceJson = id: d: dropNulls {
+    inherit id;
+    inherit (d) vendor product name base invert;
+    glyphs = lib.mapAttrs (_: g: if builtins.isPath g then "${g}" else g) (dropNulls d.glyphs);
+  };
+
   appModule = { config, ... }: {
     options = {
       id = mkOption {
@@ -175,7 +195,7 @@ let
       };
     };
     behavior = {
-      input = b.input;
+      input = b.input // { devices = lib.mapAttrsToList deviceJson b.input.devices; };
       bluetooth = dropNulls b.bluetooth;
       internet = dropNulls b.internet;
       clock = dropNulls b.clock;
@@ -373,6 +393,26 @@ in
           back = opt (types.listOf types.str) [ "Escape" "Back" "Backspace" ] "Qt key names for Back.";
         };
         defaultGlyphs = opt (types.enum [ "xbox" "playstation" "keyboard" "remote" ]) "xbox" "Prompts before any input.";
+        devices = mkOption {
+          type = types.attrsOf (types.submodule deviceModule);
+          default = { };
+          example = literalExpression ''
+            {
+              air-remote = {
+                vendor = "1915";
+                product = "1025";
+                invert = true;
+                glyphs = { select = ./remote/ok.png; back = ./remote/back.png; volumeUp = ./remote/volume-up.png; };
+              };
+            }
+          '';
+          description = ''
+            Custom input types: button prompts with your own pictures for a
+            specific remote or controller, matched by USB id and/or name.
+            Actions without a picture use the prompts of `base`.
+            Navigation is unchanged; only the prompts differ.
+          '';
+        };
       };
       bluetooth = {
         enable = opt types.bool true "Bluetooth menu and BlueZ/PipeWire setup.";

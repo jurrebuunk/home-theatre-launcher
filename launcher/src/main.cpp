@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
                                               "Implies --demo."),
                                QStringLiteral("view:file"));
     QCommandLineOption glyphsOpt(QStringLiteral("glyphs"),
-                                 QStringLiteral("Initial button prompts: xbox, playstation, keyboard or remote."),
+                                 QStringLiteral("Initial button prompts: xbox, playstation, keyboard, remote or a custom device id."),
                                  QStringLiteral("kind"));
     QCommandLineOption checkOpt(QStringLiteral("check-config"), QStringLiteral("Validate the configuration and exit."));
     parser.addOptions({configOpt, windowedOpt, demoOpt, shotOpt, glyphsOpt, checkOpt});

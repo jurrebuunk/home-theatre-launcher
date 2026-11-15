@@ -238,6 +238,7 @@ FocusScope {
             anchors.left: parent.left
             anchors.bottom: parent.bottom
             hints: [{ a: "select", t: volumeRow.activeFocus ? "Mute" : "Use" }, { a: "back", t: "Back" }]
+                   .concat(Cfg.sound.volumeKeys ? [{ a: "volumeDown", b: "volumeUp", t: "Volume" }] : [])
         }
     }
 
