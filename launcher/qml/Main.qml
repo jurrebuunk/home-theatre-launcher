@@ -77,6 +77,22 @@ Window {
         anchors.fill: parent
         focus: true
 
+        // Behind home and the panels (not over a running app).
+        BackgroundView {
+            id: menuBackground
+            anchors.fill: parent
+            visible: !window.overlayMode && !window.fakeApp
+            playing: Life.state === "launcher" && !Idle.idle
+            readonly property var cfg: Theme.layout.background
+            readonly property bool inPanel: window.panel !== ""
+            bg: cfg
+            images: Idle.imagesFor(cfg)
+            dim: inPanel && cfg.panels.dim >= 0 ? cfg.panels.dim : cfg.dim
+            blur: inPanel && cfg.panels.blur >= 0 ? cfg.panels.blur : cfg.blur
+            Behavior on dim { NumberAnimation { duration: Theme.transitionMs * 2 } }
+            Behavior on blur { NumberAnimation { duration: Theme.transitionMs * 2 } }
+        }
+
         HomeView {
             id: home
             anchors.fill: parent

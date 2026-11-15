@@ -42,6 +42,8 @@ public:
     // Image URLs for the configured background: explicit images, then the
     // directory's pictures (sorted, or shuffled).
     static QStringList resolveImages(const QVariantMap &background);
+    // The same for another background (the menu's), from QML.
+    Q_INVOKABLE QStringList imagesFor(const QVariantMap &background) const { return resolveImages(background); }
 
 Q_SIGNALS:
     void idleChanged();

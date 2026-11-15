@@ -12,6 +12,44 @@ let
 
   opt = type: default: description: mkOption { inherit type default description; };
 
+  fraction = types.addCheck types.number (x: x >= 0 && x <= 1) // { description = "number in [0, 1]"; };
+  blurPx = types.addCheck types.number (x: x >= 0 && x <= 64) // { description = "number in [0, 64]"; };
+  picture = types.either types.path (types.strMatching "^(/.*|builtin:[a-z]+)$");
+
+  # A background: colour, picture, slideshow or video, dimmed and blurred.
+  backgroundOptions = { what, dim, video ? true }: {
+    type = opt (types.enum ([ "color" "image" "slideshow" ] ++ lib.optional video "video")) "color" "${what}.";
+    color = opt (types.nullOr color) null "Background colour (default: appearance.colors.background).";
+    image = mkOption {
+      type = types.nullOr picture;
+      default = null;
+      example = "builtin:mountains";
+      description = "Picture for `type = \"image\"`: a path, or `builtin:mountains` (the design's landscape).";
+    };
+    images = mkOption {
+      type = types.listOf picture;
+      default = [ ];
+      description = "Pictures for `type = \"slideshow\"` (shown before those in `directory`).";
+    };
+    directory = opt (types.nullOr types.str) null ''
+      Directory with pictures (jpg, png, webp, …) for the slideshow. Must be
+      readable by the launcher user.
+    '';
+    interval = opt pos 30 "Seconds per slideshow picture.";
+    fadeMs = opt nonneg 1500 "Cross-fade between pictures.";
+    shuffle = opt types.bool false "Shuffle the slideshow.";
+    fill = opt (types.enum [ "cover" "contain" ]) "cover" "Crop to fill the screen, or fit inside it.";
+    dim = opt fraction dim "Darkens pictures/video (0 = none, 1 = black).";
+    blur = opt blurPx 0 "Blur strength for pictures/video: 0 (sharp) to 64 (strongest), scaled with the screen like px.";
+  } // lib.optionalAttrs video {
+    video = mkOption {
+      type = types.nullOr (types.either types.path types.str);
+      default = null;
+      description = "Looping video for `type = \"video\"` (path or URL).";
+    };
+    muted = opt types.bool true "Play the video without sound.";
+  };
+
   appModule = { config, ... }: {
     options = {
       id = mkOption {
@@ -113,13 +151,23 @@ let
 
   idleImage = img: if builtins.isPath img then "${img}" else img;
   idleBg = b.idle.background;
+  menuBg = a.background;
+  backgroundJson = bg: dropNulls ((removeAttrs bg [ "image" "images" "video" "panels" ]) // {
+    image = if bg.image == null then null else idleImage bg.image;
+    images = map idleImage bg.images;
+    video = if (bg.video or null) == null then null else idleImage bg.video;
+  });
 
   configJson = pkgs.writeText "home-theatre-launcher.json" (builtins.toJSON {
     version = 1;
     apps = map appJson cfg.apps;
     appearance = {
       inherit (a) colors uiScale safeMargin safeMarginVertical statusRowHeight tile iconSize statusIconSize
-        gap columns alignment borderWidth focusWidth focusOffset buttonHeight rowHeight transitionMs glyphStyle;
+        gap columns alignment borderWidth focusWidth focusOffset buttonHeight rowHeight transitionMs glyphStyle
+        moonlight;
+      background = backgroundJson menuBg // {
+        panels = lib.mapAttrs (_: v: if v == null then -1 else v) menuBg.panels;
+      };
       fonts = {
         serif = a.fonts.serif.family;
         mono = a.fonts.mono.family;
@@ -138,12 +186,7 @@ let
       sound = b.sound // { pactl = "${pkgs.pulseaudio}/bin/pactl"; };
       idle = {
         inherit (b.idle) enable timeout showStatus;
-        background = dropNulls {
-          inherit (idleBg) type color directory interval fadeMs shuffle muted fill dim;
-          image = if idleBg.image == null then null else idleImage idleBg.image;
-          images = map idleImage idleBg.images;
-          video = if idleBg.video == null then null else idleImage idleBg.video;
-        };
+        background = backgroundJson idleBg;
       };
     };
   });
@@ -296,6 +339,24 @@ in
       rowHeight = opt pos 80 "Bluetooth list row height.";
       transitionMs = opt nonneg 150 "Fade duration.";
       glyphStyle = opt (types.enum [ "color" "mono" ]) "color" "Controller button prompts in colour or white.";
+      background = backgroundOptions { what = "Background of the home screen and its panels"; dim = 0.0; } // {
+        panels = {
+          dim = opt (types.nullOr fraction) null "Dim behind the panels (Bluetooth, Network, Sound, Moonlight); null: as home.";
+          blur = opt (types.nullOr blurPx) null "Blur behind the panels; null: as home.";
+        };
+      };
+      moonlight = {
+        cardHeight = opt (types.ints.between 120 800) 480 ''
+          Height of the box art cards in the Moonlight library (px at 1080p;
+          the width follows the 204:320 card shape). They sit in one row.
+        '';
+        boxArtBackground = {
+          enable = opt types.bool false "Show the focused app's box art behind the Moonlight library.";
+          dim = opt fraction 0.6 "Darkens the box art background.";
+          blur = opt blurPx 40 "Blur strength of the box art background (0–64).";
+          fadeMs = opt nonneg 400 "Cross-fade when the focused app changes.";
+        };
+      };
     };
 
     behavior = {
@@ -394,40 +455,7 @@ in
         enable = opt types.bool true "Show the idle screen (clock over a background) after `timeout`.";
         timeout = opt pos 300 "Seconds without input on the launcher before the idle screen appears.";
         showStatus = opt types.bool true "Bluetooth / network icons in the top-right corner.";
-        background = {
-          type = opt (types.enum [ "color" "image" "slideshow" "video" ]) "color" "Idle background.";
-          color = opt (types.nullOr color) null "Background colour (default: appearance.colors.background).";
-          image = mkOption {
-            type = types.nullOr (types.either types.path (types.strMatching "^(/.*|builtin:[a-z]+)$"));
-            default = null;
-            example = "builtin:mountains";
-            description = "Picture for `type = \"image\"`: a path, or `builtin:mountains` (the design's landscape).";
-          };
-          images = mkOption {
-            type = types.listOf (types.either types.path (types.strMatching "^(/.*|builtin:[a-z]+)$"));
-            default = [ ];
-            description = "Pictures for `type = \"slideshow\"` (shown before those in `directory`).";
-          };
-          directory = opt (types.nullOr types.str) null ''
-            Directory with pictures (jpg, png, webp, …) for the slideshow, read each
-            time the idle screen starts. Must be readable by the launcher user.
-          '';
-          interval = opt pos 30 "Seconds per slideshow picture.";
-          fadeMs = opt nonneg 1500 "Cross-fade between pictures.";
-          shuffle = opt types.bool false "Shuffle the slideshow.";
-          video = mkOption {
-            type = types.nullOr (types.either types.path types.str);
-            default = null;
-            description = "Looping video for `type = \"video\"` (path or URL).";
-          };
-          muted = opt types.bool true "Play the video without sound.";
-          fill = opt (types.enum [ "cover" "contain" ]) "cover" "Crop to fill the screen, or fit inside it.";
-          dim = mkOption {
-            type = types.addCheck types.number (x: x >= 0 && x <= 1) // { description = "number in [0, 1]"; };
-            default = 0.25;
-            description = "Darkens pictures/video behind the clock (0 = none).";
-          };
-        };
+        background = backgroundOptions { what = "Idle screen background"; dim = 0.25; };
       };
       clock = {
         format = opt types.str "HH:mm" "Qt date/time format.";
@@ -558,7 +586,7 @@ in
         Restart = "always";
         RestartSec = 1;
         # Video decoding for the idle screen needs more headroom.
-        MemoryMax = if b.idle.background.type == "video" then "1G" else "512M";
+        MemoryMax = if b.idle.background.type == "video" || a.background.type == "video" then "1G" else "512M";
       };
     };
 

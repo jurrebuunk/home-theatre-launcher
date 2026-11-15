@@ -65,6 +65,7 @@ class Config : public QObject
 
 public:
     static constexpr int SchemaVersion = 1;
+    static constexpr int MaxBlur = 64; // blur strength (MultiEffect blurMax at 1080p)
 
     explicit Config(QObject *parent = nullptr);
 
@@ -103,6 +104,7 @@ private:
     void setDefaults();
     void resolveKeys();
     void validateIdle();
+    void validateBackground(const QString &where, const QVariantMap &bg);
 
     QList<AppSpec> m_apps;
     QVariantMap m_colors, m_fonts, m_layout, m_input, m_bluetooth, m_internet, m_clock, m_network, m_idle, m_overlay, m_sound,

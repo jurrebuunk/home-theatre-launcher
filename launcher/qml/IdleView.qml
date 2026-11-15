@@ -5,41 +5,17 @@ import QtQuick
 Item {
     id: root
     readonly property var bg: Idle.background
-    readonly property bool pictures: bg.type === "image" || bg.type === "slideshow"
 
     visible: opacity > 0
     opacity: Idle.idle ? 1 : 0
     Behavior on opacity { NumberAnimation { duration: 600 } }
 
-    Rectangle {
+    BackgroundView {
         anchors.fill: parent
-        color: root.bg.color
-    }
-    Loader {
-        anchors.fill: parent
-        active: root.visible && root.pictures
-        sourceComponent: Slideshow {
-            sources: Idle.images
-            interval: root.bg.interval * 1000
-            fade: root.bg.fadeMs
-            fill: root.bg.fill
-        }
-    }
-    Loader {
-        anchors.fill: parent
-        active: root.visible && root.bg.type === "video"
-        source: "IdleVideo.qml"
-        onLoaded: {
-            const v = String(root.bg.video)
-            item.source = v.startsWith("/") ? "file://" + encodeURI(v) : v
-            item.muted = root.bg.muted
-            item.fill = root.bg.fill
-        }
-    }
-    Rectangle {
-        anchors.fill: parent
-        color: "#000000"
-        opacity: root.bg.type === "color" ? 0 : root.bg.dim
+        bg: root.bg
+        images: Idle.images
+        dim: root.bg.dim
+        blur: root.bg.blur || 0
     }
 
     StatusIcons {

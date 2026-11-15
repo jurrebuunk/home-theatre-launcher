@@ -9,6 +9,7 @@ Item {
     property int fade: 1500
     property string fill: "cover"
     property int index: 0
+    property bool running: visible
     property Item front: a
     property Item back: b
 
@@ -31,9 +32,21 @@ Item {
     }
     onSourcesChanged: {
         index = 0
+        const first = sources.length > 0 ? sources[0] : ""
+        if (first !== "" && front.status === Image.Ready && fade > 0) {
+            // Something is showing: fade the new picture in over it.
+            if (String(front.source) === first)
+                return
+            if (String(back.source) === first && back.status === Image.Ready)
+                reveal(back)
+            else
+                back.source = first
+            return
+        }
+        fadeIn.stop()
         a.opacity = 1; a.z = 1; b.opacity = 0; b.z = 0
         front = a; back = b
-        a.source = sources.length > 0 ? sources[0] : ""
+        a.source = first
         b.source = ""
     }
 
@@ -61,7 +74,7 @@ Item {
     Timer {
         interval: root.interval
         repeat: true
-        running: root.visible && root.sources.length > 1
+        running: root.running && root.sources.length > 1
         onTriggered: root.next()
     }
 }

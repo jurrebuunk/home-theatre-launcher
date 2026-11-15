@@ -62,7 +62,6 @@ FocusScope {
     onNoAdapterChanged: if (activeFocus || visible) Qt.callLater(focusDefault)
     onPairingOpenChanged: if (pairingOpen) pairing.focusDefault(); else Qt.callLater(focusDefault)
 
-    Rectangle { anchors.fill: parent; color: root.compact ? "transparent" : Theme.background }
     MouseArea { anchors.fill: parent }
 
     component ToolButton: Item {
@@ -370,12 +369,14 @@ FocusScope {
         id: pairing
         anchors.fill: parent
         visible: root.pairingOpen
+        backdrop: root.compact ? Theme.background : "transparent"
     }
 
     NoAdapterView {
         id: noAdapterView
         anchors.fill: parent
         visible: root.noAdapter
+        backdrop: root.compact ? Theme.background : "transparent"
         unavailable: !Bt.serviceAvailable
         onCloseRequested: root.close()
     }

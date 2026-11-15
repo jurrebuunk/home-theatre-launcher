@@ -155,9 +155,32 @@ never also launches something.
 | `slideshow` | `images` and/or `directory`, `interval`, `fadeMs` (cross-fade), `shuffle` |
 | `video` | `video` (path or URL, looped), `muted` |
 
-`fill` (`cover` / `contain`) and `dim` (0–1, darkens pictures behind the
-clock) apply to pictures and video. Set `behavior.idle.enable = false` to turn
-it off. The date line uses `behavior.clock.dateFormat` and `locale`.
+`fill` (`cover` / `contain`), `dim` (0–1, darkens pictures behind the
+clock) and `blur` (0–64, 0 = sharp) apply to pictures and video. Set
+`behavior.idle.enable = false` to turn it off. The date line uses
+`behavior.clock.dateFormat` and `locale`.
+
+### Menu background
+
+`appearance.background` takes the same options as the idle background
+(`type`, `image`, `images`, `directory`, `video`, `fill`, `dim`, `blur`, …).
+It shows behind the home screen and its panels (Bluetooth, Network, Sound,
+Moonlight). Panels can use a different dim or blur so lists stay readable;
+when unset they match the home screen:
+
+```nix
+appearance.background = {
+  type = "image";
+  image = ./wallpaper.jpg;
+  dim = 0.3;
+  blur = 16;
+  panels = { dim = 0.6; blur = 48; };
+};
+```
+
+The blurred picture is rendered once and cached, so a static background costs
+nothing while browsing. Blur needs the GPU renderer. With Qt's software
+renderer, pictures show sharp.
 
 ### In-app menu
 
@@ -185,7 +208,12 @@ Combos fire when they are released, so the app never keeps a stuck button.
 An app with `type = "moonlight"` (the `lib.apps.moonlight` preset sets it)
 opens a library instead of starting moonlight-qt's own interface:
 
-- **Library:** the apps of the selected host as box art. The app running on
+- **Library:** the apps of the selected host as box art, in one row like the
+  home screen (`appearance.moonlight.cardHeight`, default 480; the cards keep
+  their 204:320 shape). With
+  `appearance.moonlight.boxArtBackground = { enable = true; dim = 0.6; blur = 40; }`
+  the focused app's box art fills the background. It cross-fades
+  (`fadeMs`) as focus moves. The app running on
   the PC carries a ▶ badge. **A** plays it: the stream starts as
   `moonlight stream <host> <app> <streamArguments>` and is supervised like
   any app. If another app runs on the PC, the launcher asks to quit it first.

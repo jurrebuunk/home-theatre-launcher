@@ -48,7 +48,9 @@ FocusScope {
         }
     }
 
-    Rectangle { anchors.fill: parent; color: Theme.background }
+    // Opaque by default; "transparent" over the menu background.
+    property color backdrop: Theme.background
+    Rectangle { anchors.fill: parent; color: root.backdrop }
 
     Column {
         anchors.centerIn: parent

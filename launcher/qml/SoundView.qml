@@ -11,7 +11,6 @@ FocusScope {
     function focusDefault() { volumeRow.forceActiveFocus() }
     function close() { closeRequested() }
 
-    Rectangle { anchors.fill: parent; color: root.compact ? "transparent" : Theme.background }
     MouseArea { anchors.fill: parent }
 
     Item {

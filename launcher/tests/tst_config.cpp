@@ -20,6 +20,29 @@ private Q_SLOTS:
         QCOMPARE(c.layout().value("columns").toInt(), 4);
         QVERIFY(c.selectKeys().contains(Qt::Key_Return));
         QVERIFY(c.backKeys().contains(Qt::Key_Escape));
+        const QVariantMap bg = c.layout().value("background").toMap();
+        QCOMPARE(bg.value("type").toString(), QStringLiteral("color"));
+        QCOMPARE(bg.value("panels").toMap().value("blur").toInt(), -1);
+        QCOMPARE(c.layout().value("moonlight").toMap().value("cardHeight").toInt(), 480);
+    }
+
+    void menuBackground()
+    {
+        Config c;
+        QVERIFY2(c.loadJson(wrap({}, R"("appearance":{"background":{"type":"image","image":"/srv/wall.jpg",
+            "dim":0.3,"blur":24,"panels":{"dim":0.6}},"moonlight":{"cardHeight":520,
+            "boxArtBackground":{"enable":true,"blur":32}}},
+            "behavior":{"idle":{"background":{"blur":12}}})")),
+                 qPrintable(c.errors().join('\n')));
+        const QVariantMap bg = c.layout().value("background").toMap();
+        QCOMPARE(bg.value("blur").toInt(), 24);
+        QCOMPARE(bg.value("panels").toMap().value("dim").toDouble(), 0.6);
+        QCOMPARE(bg.value("panels").toMap().value("blur").toInt(), -1); // as home
+        QCOMPARE(bg.value("fill").toString(), QStringLiteral("cover"));
+        const QVariantMap art = c.layout().value("moonlight").toMap().value("boxArtBackground").toMap();
+        QVERIFY(art.value("enable").toBool());
+        QCOMPARE(art.value("dim").toDouble(), 0.6);
+        QCOMPARE(c.idle().value("background").toMap().value("blur").toInt(), 12);
     }
 
     void fullApp()
@@ -73,6 +96,13 @@ private Q_SLOTS:
         QTest::newRow("idle slideshow") << wrap({}, R"("behavior":{"idle":{"background":{"type":"slideshow"}}})") << "needs images";
         QTest::newRow("idle dim") << wrap({}, R"("behavior":{"idle":{"background":{"dim":2}}})") << "dim";
         QTest::newRow("idle timeout") << wrap({}, R"("behavior":{"idle":{"timeout":0}})") << "idle.timeout";
+        QTest::newRow("idle blur") << wrap({}, R"("behavior":{"idle":{"background":{"blur":65}}})") << "idle.background.blur";
+        QTest::newRow("menu type") << wrap({}, R"("appearance":{"background":{"type":"gif"}})") << "appearance.background.type";
+        QTest::newRow("menu image") << wrap({}, R"("appearance":{"background":{"type":"image"}})") << "appearance.background.image";
+        QTest::newRow("menu blur") << wrap({}, R"("appearance":{"background":{"blur":-1}})") << "appearance.background.blur";
+        QTest::newRow("panel dim") << wrap({}, R"("appearance":{"background":{"panels":{"dim":3}}})") << "panels";
+        QTest::newRow("card height") << wrap({}, R"("appearance":{"moonlight":{"cardHeight":20}})") << "cardHeight";
+        QTest::newRow("box art dim") << wrap({}, R"("appearance":{"moonlight":{"boxArtBackground":{"dim":2}}})") << "boxArtBackground.dim";
         QTest::newRow("overlay dim") << wrap({}, R"("behavior":{"overlay":{"dim":1.5}})") << "overlay.dim";
         QTest::newRow("missing icon") << wrap(R"({"id":"a","label":"A","command":["/x"],"icon":"/nonexistent.svg"})") << "does not exist";
     }

@@ -117,6 +117,7 @@ qt_add_qml_module(home-theatre-launcher
         qml/IdleView.qml
         qml/Slideshow.qml
         qml/IdleVideo.qml
+        qml/BackgroundView.qml
         qml/OverlayView.qml
         qml/OverlayButton.qml
         qml/SoundView.qml

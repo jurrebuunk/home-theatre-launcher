@@ -8,15 +8,18 @@ Item {
     property string art
     property bool running
     property bool focused: activeFocus
+    property real cardHeight: Theme.px(320)
     signal activated()
 
-    width: Theme.px(204)
-    height: Theme.px(320)
+    // Sizes below are for a 320 px card; everything scales with it.
+    readonly property real u: cardHeight / 320
+    width: Math.round(cardHeight * 204 / 320)
+    height: cardHeight
     z: focused ? 2 : 0
     scale: focused ? 1.08 : 1
     Behavior on scale { NumberAnimation { duration: Theme.transitionMs } }
 
-    readonly property real strip: Theme.px(52)
+    readonly property real strip: Math.round(52 * u)
 
     Rectangle {
         anchors.fill: parent
@@ -38,7 +41,7 @@ Item {
             Label {
                 anchors.centerIn: parent
                 role: "display"
-                font.pixelSize: Theme.px(72)
+                font.pixelSize: Math.round(72 * u)
                 color: Theme.faint
                 text: root.name.split(" ").slice(0, 2).map(w => w.charAt(0)).join("").toUpperCase()
             }
@@ -63,10 +66,10 @@ Item {
         Label {
             anchors.left: parent.left
             anchors.right: parent.right
-            anchors.leftMargin: Theme.px(12)
-            anchors.rightMargin: Theme.px(8)
+            anchors.leftMargin: Math.round(12 * u)
+            anchors.rightMargin: Math.round(8 * u)
             anchors.verticalCenter: parent.verticalCenter
-            font.pixelSize: Theme.px(22)
+            font.pixelSize: Math.round(22 * u)
             text: root.name
             color: root.focused ? Theme.background : Theme.text
         }
@@ -76,13 +79,13 @@ Item {
         anchors.top: parent.top
         anchors.right: parent.right
         anchors.margins: Theme.borderWidth
-        width: Theme.px(44)
+        width: Math.round(44 * u)
         height: width
         color: Theme.accent
         Icon {
             anchors.centerIn: parent
             name: "play"
-            size: Theme.px(30)
+            size: Math.round(30 * u)
             tint: Theme.background
         }
     }

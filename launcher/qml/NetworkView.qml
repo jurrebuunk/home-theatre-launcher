@@ -127,7 +127,7 @@ FocusScope {
         }
     }
 
-    Rectangle { anchors.fill: parent; color: root.compact && !root.entry ? "transparent" : Theme.background }
+    Rectangle { anchors.fill: parent; color: root.compact && root.entry ? Theme.background : "transparent" }
     MouseArea { anchors.fill: parent }
 
     Item {
@@ -401,6 +401,7 @@ FocusScope {
         id: entryView
         anchors.fill: parent
         visible: !!root.entry
+        backdrop: "transparent" // the view's own background covers the app
         enabled: visible
         title: root.entry ? root.entry.title : ""
         iconName: root.entry ? root.entry.icon : "lock"

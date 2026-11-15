@@ -76,6 +76,15 @@ void Config::setDefaults()
         {"iconSize", 120}, {"statusIconSize", 32}, {"gap", 48}, {"columns", 4},
         {"alignment", "center"}, {"borderWidth", 1}, {"focusWidth", 4}, {"focusOffset", 6},
         {"buttonHeight", 80}, {"rowHeight", 80}, {"transitionMs", 150}, {"glyphStyle", "color"},
+        // Behind the home screen and its panels; panels.dim/blur < 0 means the same as home.
+        {"background", QVariantMap{{"type", "color"}, {"color", QString()}, {"image", QString()},
+                                   {"images", QStringList()}, {"directory", QString()}, {"interval", 30},
+                                   {"fadeMs", 1500}, {"shuffle", false}, {"video", QString()},
+                                   {"fill", "cover"}, {"dim", 0.0}, {"blur", 0},
+                                   {"panels", QVariantMap{{"dim", -1}, {"blur", -1}}}}},
+        {"moonlight", QVariantMap{{"cardHeight", 480},
+                                  {"boxArtBackground", QVariantMap{{"enable", false}, {"dim", 0.6}, {"blur", 40},
+                                                                   {"fadeMs", 400}}}}},
     };
     m_input = {
         {"confirmButton", "south"}, {"homeHoldMs", 1000}, {"repeatDelayMs", 400},
@@ -115,7 +124,7 @@ void Config::setDefaults()
         {"background", QVariantMap{{"type", "color"}, {"color", QString()}, {"image", QString()},
                                    {"images", QStringList()}, {"directory", QString()}, {"interval", 30},
                                    {"fadeMs", 1500}, {"shuffle", false}, {"video", QString()}, {"muted", true},
-                                   {"fill", "cover"}, {"dim", 0.25}}},
+                                   {"fill", "cover"}, {"dim", 0.25}, {"blur", 0}}},
     };
 }
 
@@ -228,6 +237,20 @@ bool Config::loadJson(const QByteArray &json)
         m_errors << QStringLiteral("appearance.alignment must be left or center");
 
     validateIdle();
+    validateBackground(QStringLiteral("appearance.background"), m_layout.value("background").toMap());
+    const QVariantMap panels = m_layout.value("background").toMap().value("panels").toMap();
+    if (panels.value("dim").toDouble() > 1 || panels.value("blur").toDouble() > MaxBlur)
+        m_errors << QStringLiteral("appearance.background.panels: dim must be <= 1 and blur <= %1").arg(MaxBlur);
+    const QVariantMap ml = m_layout.value("moonlight").toMap();
+    if (ml.value("cardHeight").toDouble() < 120 || ml.value("cardHeight").toDouble() > 800)
+        m_errors << QStringLiteral("appearance.moonlight.cardHeight must be in [120, 800]");
+    const QVariantMap art = ml.value("boxArtBackground").toMap();
+    if (art.value("dim").toDouble() < 0 || art.value("dim").toDouble() > 1)
+        m_errors << QStringLiteral("appearance.moonlight.boxArtBackground.dim must be in [0, 1]");
+    if (art.value("blur").toDouble() < 0 || art.value("blur").toDouble() > MaxBlur)
+        m_errors << QStringLiteral("appearance.moonlight.boxArtBackground.blur must be in [0, %1]").arg(MaxBlur);
+    if (art.value("fadeMs").toInt() < 0)
+        m_errors << QStringLiteral("appearance.moonlight.boxArtBackground.fadeMs must be >= 0");
     if (m_overlay.value("dim").toDouble() < 0 || m_overlay.value("dim").toDouble() > 1)
         m_errors << QStringLiteral("behavior.overlay.dim must be in [0, 1]");
     if (m_network.value("scanDuration").toInt() <= 0)
@@ -307,23 +330,30 @@ bool Config::loadJson(const QByteArray &json)
 
 void Config::validateIdle()
 {
-    static const QRegularExpression colorRe(QStringLiteral("^#[0-9a-fA-F]{6}$"));
     if (m_idle.value("timeout").toInt() <= 0)
         m_errors << QStringLiteral("behavior.idle.timeout must be > 0");
-    QVariantMap bg = m_idle.value("background").toMap();
+    validateBackground(QStringLiteral("behavior.idle.background"), m_idle.value("background").toMap());
+}
+
+void Config::validateBackground(const QString &where, const QVariantMap &bg)
+{
+    static const QRegularExpression colorRe(QStringLiteral("^#[0-9a-fA-F]{6}$"));
     const QString type = bg.value("type").toString();
     if (!QStringList{"color", "image", "slideshow", "video"}.contains(type))
-        m_errors << QStringLiteral("behavior.idle.background.type must be color, image, slideshow or video");
+        m_errors << QStringLiteral("%1.type must be color, image, slideshow or video").arg(where);
     const QString color = bg.value("color").toString();
     if (!color.isEmpty() && !colorRe.match(color).hasMatch())
-        m_errors << QStringLiteral("behavior.idle.background.color: invalid colour '%1'").arg(color);
+        m_errors << QStringLiteral("%1.color: invalid colour '%2'").arg(where, color);
     if (!QStringList{"cover", "contain"}.contains(bg.value("fill").toString()))
-        m_errors << QStringLiteral("behavior.idle.background.fill must be cover or contain");
+        m_errors << QStringLiteral("%1.fill must be cover or contain").arg(where);
     const double dim = bg.value("dim").toDouble();
     if (dim < 0 || dim > 1)
-        m_errors << QStringLiteral("behavior.idle.background.dim must be in [0, 1]");
+        m_errors << QStringLiteral("%1.dim must be in [0, 1]").arg(where);
+    const double blur = bg.value("blur").toDouble();
+    if (blur < 0 || blur > MaxBlur)
+        m_errors << QStringLiteral("%1.blur must be in [0, %2]").arg(where).arg(MaxBlur);
     if (bg.value("interval").toInt() <= 0 || bg.value("fadeMs").toInt() < 0)
-        m_errors << QStringLiteral("behavior.idle.background: interval must be > 0 and fadeMs >= 0");
+        m_errors << QStringLiteral("%1: interval must be > 0 and fadeMs >= 0").arg(where);
 
     auto checkImage = [this](const QString &where, const QString &path) {
         if (path.startsWith(QLatin1String("builtin:"))) {
@@ -335,24 +365,24 @@ void Config::validateIdle()
     };
     if (type == QLatin1String("image")) {
         if (bg.value("image").toString().isEmpty())
-            m_errors << QStringLiteral("behavior.idle.background.image is required for type image");
+            m_errors << QStringLiteral("%1.image is required for type image").arg(where);
         else
-            checkImage(QStringLiteral("behavior.idle.background.image"), bg.value("image").toString());
+            checkImage(where + QStringLiteral(".image"), bg.value("image").toString());
     } else if (type == QLatin1String("slideshow")) {
         const QStringList images = bg.value("images").toStringList();
         const QString dir = bg.value("directory").toString();
         if (images.isEmpty() && dir.isEmpty())
-            m_errors << QStringLiteral("behavior.idle.background: a slideshow needs images or a directory");
+            m_errors << QStringLiteral("%1: a slideshow needs images or a directory").arg(where);
         for (const QString &i : images)
-            checkImage(QStringLiteral("behavior.idle.background.images"), i);
+            checkImage(where + QStringLiteral(".images"), i);
         if (!dir.isEmpty() && !dir.startsWith(QLatin1Char('/')))
-            m_errors << QStringLiteral("behavior.idle.background.directory must be an absolute path");
+            m_errors << QStringLiteral("%1.directory must be an absolute path").arg(where);
     } else if (type == QLatin1String("video")) {
         const QString video = bg.value("video").toString();
         if (video.isEmpty())
-            m_errors << QStringLiteral("behavior.idle.background.video is required for type video");
+            m_errors << QStringLiteral("%1.video is required for type video").arg(where);
         else if (!video.startsWith(QLatin1Char('/')) && !video.contains(QLatin1String("://")))
-            m_errors << QStringLiteral("behavior.idle.background.video must be an absolute path or URL");
+            m_errors << QStringLiteral("%1.video must be an absolute path or URL").arg(where);
     }
 }
 

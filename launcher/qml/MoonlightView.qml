@@ -155,7 +155,31 @@ FocusScope {
         onTriggered: { Moonlight.cancelPair(); root.go("library") }
     }
 
-    Rectangle { anchors.fill: parent; color: Theme.background }
+    // The focused app's box art behind the library (optional), over the
+    // menu background. Follows focus after a short pause, so scrolling
+    // through the row does not decode every picture on the way.
+    readonly property var artBg: Theme.layout.moonlight.boxArtBackground
+    property string backdropArt: ""
+    readonly property string focusedArt: {
+        const a = page === "library" && showGrid ? appAt(grid.currentIndex) : null
+        return a && a.art ? a.art : ""
+    }
+    onFocusedArtChanged: artDelay.restart()
+    Timer {
+        id: artDelay
+        interval: root.backdropArt === "" ? 0 : 250
+        onTriggered: root.backdropArt = root.focusedArt
+    }
+    BackgroundView {
+        anchors.fill: parent
+        visible: root.artBg.enable && opacity > 0
+        opacity: root.artBg.enable && root.backdropArt !== "" ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: root.artBg.fadeMs } }
+        bg: ({ type: "image", fill: "cover", fadeMs: root.artBg.fadeMs, color: "transparent" })
+        images: root.backdropArt !== "" ? [root.backdropArt] : []
+        dim: root.artBg.dim
+        blur: root.artBg.blur
+    }
     MouseArea { anchors.fill: parent }
 
     component HeaderButton: Item {
@@ -262,44 +286,56 @@ FocusScope {
             }
             Separator { id: headerLine; anchors.top: header.bottom; width: parent.width }
 
-            GridView {
+            // One row of box art, like the home screen.
+            ListView {
                 id: grid
-                anchors.top: headerLine.bottom
-                anchors.bottom: footerLine.top
+                readonly property real cardHeight: Theme.px(Theme.layout.moonlight.cardHeight)
+                readonly property real cardWidth: Math.round(cardHeight * 204 / 320)
+                readonly property real gap: Theme.px(40)
+                readonly property real pad: Theme.px(28) // room for the focused (scaled) card
+                y: headerLine.y + headerLine.height + (footerLine.y - headerLine.y - headerLine.height - height) / 2
                 anchors.left: parent.left
                 anchors.right: parent.right
-                anchors.leftMargin: -Theme.px(20)
-                anchors.rightMargin: -Theme.px(20)
+                anchors.leftMargin: -pad
+                anchors.rightMargin: -pad
+                height: Math.min(cardHeight * 1.08 + 2 * Theme.px(12), footerLine.y - headerLine.y - headerLine.height)
                 visible: root.showGrid
                 clip: true
-                topMargin: Theme.px(40)
-                bottomMargin: Theme.px(40)
-                leftMargin: Theme.px(20)
-                rightMargin: Theme.px(20)
-                readonly property real gap: Theme.px(32)
-                cellWidth: Theme.px(204) + gap
-                cellHeight: Theme.px(320) + gap
-                readonly property int columns: Math.max(1, Math.floor((width - leftMargin - rightMargin + gap) / cellWidth))
+                orientation: ListView.Horizontal
+                spacing: gap
+                // Centred while it fits (or left-aligned, as the home screen).
+                readonly property real spare: width - 2 * pad - (count * cardWidth + Math.max(0, count - 1) * gap)
+                leftMargin: pad + (Theme.layout.alignment === "left" ? 0 : Math.max(0, spare / 2))
+                rightMargin: pad
                 model: appModel
                 keyNavigationEnabled: true
                 highlightFollowsCurrentItem: false
                 boundsBehavior: Flickable.StopAtBounds
-                delegate: BoxArtTile {
-                    name: model.name
-                    art: model.art
-                    running: model.running
-                    focused: grid.activeFocus && GridView.isCurrentItem
-                    onActivated: {
-                        grid.currentIndex = index
-                        grid.forceActiveFocus()
-                        const app = root.appAt(index)
-                        if (app) root.play(app)
+                delegate: Item {
+                    id: cell
+                    required property int index
+                    required property string name
+                    required property string art
+                    required property bool running
+                    width: grid.cardWidth
+                    height: grid.height
+                    BoxArtTile {
+                        anchors.verticalCenter: parent.verticalCenter
+                        cardHeight: grid.cardHeight
+                        name: cell.name
+                        art: cell.art
+                        running: cell.running
+                        focused: grid.activeFocus && cell.ListView.isCurrentItem
+                        onActivated: {
+                            grid.currentIndex = cell.index
+                            grid.forceActiveFocus()
+                            const app = root.appAt(cell.index)
+                            if (app) root.play(app)
+                        }
                     }
+                    z: ListView.isCurrentItem ? 2 : 0
                 }
-                Keys.onUpPressed: (event) => {
-                    if (currentIndex < columns) hostButton.forceActiveFocus()
-                    else event.accepted = false
-                }
+                Keys.onUpPressed: hostButton.forceActiveFocus()
                 Keys.onPressed: (event) => {
                     const app = root.appAt(currentIndex)
                     if (Theme.isSelect(event.key) && app) {
@@ -563,6 +599,7 @@ FocusScope {
         hint: "IP address or name of the PC, e.g. 192.168.1.20"
         onSubmitted: (text) => root.startPair(text)
         onCancelled: root.go("hosts")
+        backdrop: "transparent"
         onVisibleChanged: if (visible) { text = ""; error = ""; mode = "lower"; row = 0; col = 0 }
     }
 
