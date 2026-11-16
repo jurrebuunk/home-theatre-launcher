@@ -309,8 +309,11 @@ void LifecycleController::refreshUnitState()
     if (m_app.id.isEmpty())
         return;
     const int op = m_op;
-    m_backend->unitState(UnitBackend::User, m_app.unitName(), [this, op](const UnitBackend::UnitState &st) {
-        if (!alive(op))
+    // Queries take two D-Bus round trips and can overlap; an older one finishing
+    // last (e.g. from the reset before a start) must not overwrite a newer state.
+    const int query = ++m_unitQuery;
+    m_backend->unitState(UnitBackend::User, m_app.unitName(), [this, op, query](const UnitBackend::UnitState &st) {
+        if (!alive(op) || query != m_unitQuery)
             return;
         m_unit = st;
         m_unitKnown = true;

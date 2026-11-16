@@ -65,8 +65,8 @@ void WindowController::updateIndicators(bool raise)
         if (!m_indicators->isVisible())
             m_indicators->show();
     } else if (m_indicators->isVisible()) {
-        // Let the fade-out finish first.
-        QTimer::singleShot(250, this, [this] {
+        // Let the pop-out animations finish first.
+        QTimer::singleShot(400, this, [this] {
             if (!m_notifier->active())
                 m_indicators->hide();
         });

@@ -16,8 +16,8 @@ Item {
     width: Math.round(cardHeight * 204 / 320)
     height: cardHeight
     z: focused ? 2 : 0
-    scale: focused ? 1.08 : 1
-    Behavior on scale { NumberAnimation { duration: Theme.transitionMs } }
+    scale: focused ? Theme.layout.moonlight.focusScale : 1
+    Behavior on scale { NumberAnimation { duration: Theme.transitionMs; easing.type: Easing.OutCubic } }
 
     readonly property real strip: Math.round(52 * u)
 

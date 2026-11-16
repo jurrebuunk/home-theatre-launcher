@@ -8,6 +8,9 @@ Item {
 
     width: Theme.px(Theme.layout.tile.width)
     height: Theme.px(Theme.layout.tile.height)
+    z: activeFocus ? 2 : 0
+    scale: activeFocus ? Theme.layout.tile.focusScale : 1
+    Behavior on scale { NumberAnimation { duration: Theme.transitionMs; easing.type: Easing.OutCubic } }
 
     readonly property bool blocked: Life.cleanupIncomplete
     readonly property color fg: activeFocus ? Theme.background : Theme.text

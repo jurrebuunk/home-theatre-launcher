@@ -28,7 +28,7 @@ packs rather than the design's line drawings:
 - **Interface and app icons:** Google [Material Symbols](https://fonts.google.com/icons),
   *Sharp* style at weight 300, with square corners and thin strokes to match
   the design.
-- **Controller button prompts:** the real Xbox / PS5 glyphs from Kenney
+- **Button prompts:** the real Xbox / PS5 and keyboard glyphs from Kenney
   *Input Prompts*.
 
 ## More screenshots
@@ -101,7 +101,7 @@ Rendered by the app itself (`--screenshot`, demo data) at 1920×1080.
     ];
     appearance = {
       uiScale = 1.25;                     # bigger for a far couch
-      tile = { width = 480; height = 360; };
+      tile = { width = 480; height = 360; focusScale = 1.05; }; # selected tile grows 5 %
     };
     behavior.internet = {
       interface = "ens18";
@@ -238,7 +238,8 @@ opens a library instead of starting moonlight-qt's own interface:
 
 - **Library:** the apps of the selected host as box art, in one row like the
   home screen (`appearance.moonlight.cardHeight`, default 480; the cards keep
-  their 204:320 shape). With
+  their 204:320 shape). The selected card grows by `appearance.moonlight.focusScale`
+  (default 1.08; 1 turns it off). With
   `appearance.moonlight.boxArtBackground = { enable = true; dim = 0.6; blur = 40; }`
   the focused app's box art fills the background. It cross-fades
   (`fadeMs`) as focus moves. The app running on
@@ -293,7 +294,8 @@ behavior.sound = {
 
 ### Notifications
 
-Short notices at the top right, at most three, on their own click-through
+Short notices at the top centre, at most three, that slide down from the
+top edge and pop away, on their own click-through
 surface above everything (home, apps and the in-app menu) without dimming
 anything:
 
@@ -304,6 +306,15 @@ anything:
 - the sound output switching (also when headphones disconnect and audio falls back).
 
 Thresholds and timing are in `behavior.notifications`.
+
+### Controller auto-off
+
+`behavior.input.controllerIdleMinutes = 15;` turns a Bluetooth controller off
+after 15 minutes without use, also while an app or stream runs, to save its
+battery. Only buttons and sticks / triggers past the deadzone count as use, so
+a controller lying on the table does not stay awake. It is disconnected, which
+powers it off; its Home / PS button reconnects it. The default 0 keeps
+controllers on.
 
 ### Network screen
 
@@ -432,4 +443,4 @@ These can only be confirmed with real hardware:
 - Material Symbols (Google), Apache-2.0: `launcher/assets/icons`, `launcher/assets/apps`
   (`launcher/assets/LICENSE-material-symbols.txt`). To refresh or remap them, run
   `scripts/vendor-material-icons.sh [version]`.
-- Controller glyphs: Kenney *Input Prompts*, CC0 (`launcher/assets/glyphs/LICENSE-kenney.txt`).
+- Controller and keyboard glyphs: Kenney *Input Prompts*, CC0 (`launcher/assets/glyphs/LICENSE-kenney.txt`).

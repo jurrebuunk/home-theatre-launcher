@@ -43,6 +43,9 @@ public:
     static int axisDirection(double normX, double normY, double deadzone);
     // "BTN_SELECT+BTN_START" → {codes}; unknown names make the whole entry invalid (empty).
     static QList<QSet<int>> parseCombos(const QStringList &entries);
+    // Whether a controller event is deliberate use: a press, or a stick, trigger or
+    // d-pad pushed past the deadzone (stick noise does not keep a controller awake).
+    static bool isUse(int type, int code, int value, double normalized, double deadzone);
 
     // While the in-app menu is open, controllers are grabbed so the app
     // behind it does not also react to the buttons.
@@ -56,6 +59,8 @@ Q_SIGNALS:
     void volumeKey(int direction); // +1 up, -1 down, 0 mute (works inside apps too)
     void lastDeviceChanged();
     void navigationEnabledChanged();
+    // A Bluetooth controller (by address) went unused for behavior.input.controllerIdleMinutes.
+    void controllerIdle(const QString &address);
 
 public:
     static constexpr int Select = 10;
@@ -78,6 +83,9 @@ private:
         QSet<int> down;
         bool grabbed = false;
         bool comboArmed = false;
+        QString uniq;        // Bluetooth address for wireless controllers
+        qint64 lastUse = 0;  // ms since epoch
+        bool idleSent = false;
     };
 
     void rescan();
@@ -89,6 +97,7 @@ private:
     void setHeld(int dir);
     void releaseAll();
     void applyGrab(Device &d);
+    void checkIdleControllers();
     bool overlayCombo(const QList<QSet<int>> &combos, const Device &d, int code) const;
 
     const Config *m_config;
@@ -115,6 +124,8 @@ private:
     int m_homeHeldCode = -1;
     int m_held = None;
     QTimer m_repeat;
+    QTimer m_idleCheck;
+    qint64 m_controllerIdleMs = 0; // 0: never
     int m_repeatInterval = 120;
     int m_repeatDelay = 400;
 };

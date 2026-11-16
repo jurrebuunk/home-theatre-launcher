@@ -2,6 +2,7 @@
 
 #include "Config.h"
 
+#include <QDateTime>
 #include <QDir>
 #include <QFileSystemWatcher>
 #include <QLoggingCategory>
@@ -55,6 +56,12 @@ InputRouter::InputRouter(const Config *config, QObject *parent)
     m_customDevices = input.value("devices").toList();
     m_repeatDelay = input.value("repeatDelayMs").toInt();
     m_repeatInterval = input.value("repeatIntervalMs").toInt();
+    m_controllerIdleMs = qint64(input.value("controllerIdleMinutes").toDouble() * 60000);
+    if (m_controllerIdleMs > 0) {
+        m_idleCheck.setInterval(std::min<qint64>(30000, m_controllerIdleMs / 4 + 1));
+        connect(&m_idleCheck, &QTimer::timeout, this, &InputRouter::checkIdleControllers);
+        m_idleCheck.start();
+    }
     const QVariantMap overlay = config->overlay();
     m_overlayEnabled = overlay.value("enable").toBool();
     m_overlayGamepad = parseCombos(overlay.value("gamepadCodes").toStringList());
@@ -249,6 +256,9 @@ void InputRouter::openDevice(const QString &path)
     d->fd = fd;
     d->dev = dev;
     d->kind = classify(gamepad, letters, remote);
+    if (const char *uniq = libevdev_get_uniq(dev))
+        d->uniq = QString::fromLatin1(uniq).trimmed();
+    d->lastUse = QDateTime::currentMSecsSinceEpoch();
     if (d->kind == Kind::Ignored) {
         // Keep the fd closed but remember the node so it is not reopened every rescan.
         libevdev_free(dev);
@@ -319,8 +329,49 @@ void InputRouter::readDevice(const QString &path)
     }
 }
 
+bool InputRouter::isUse(int type, int code, int value, double normalized, double deadzone)
+{
+    if (type == EV_KEY)
+        return value == 1;
+    if (type != EV_ABS)
+        return false;
+    switch (code) {
+    case ABS_HAT0X:
+    case ABS_HAT0Y:
+        return value != 0;
+    case ABS_X:
+    case ABS_Y:
+    case ABS_RX:
+    case ABS_RY:
+        return std::abs(normalized) > deadzone;
+    case ABS_Z:
+    case ABS_RZ:
+        return normalized > 0; // trigger more than half way in
+    default:
+        return false;
+    }
+}
+
+void InputRouter::checkIdleControllers()
+{
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    for (Device *d : std::as_const(m_devices)) {
+        if (d->kind != Kind::Gamepad || d->uniq.isEmpty() || d->idleSent || now - d->lastUse < m_controllerIdleMs)
+            continue;
+        d->idleSent = true;
+        qCInfo(lcInput) << "controller idle, turning off" << libevdev_get_name(d->dev) << d->uniq;
+        Q_EMIT controllerIdle(d->uniq);
+    }
+}
+
 void InputRouter::handleEvent(Device &d, int type, int code, int value)
 {
+    if (d.kind == Kind::Gamepad && m_controllerIdleMs > 0
+        && isUse(type, code, value, type == EV_ABS ? normalize(libevdev_get_abs_info(d.dev, code), value) : 0,
+                 m_deadzone)) {
+        d.lastUse = QDateTime::currentMSecsSinceEpoch();
+        d.idleSent = false;
+    }
     if (type == EV_KEY) {
         if (m_volumeKeys && value != 0 && (code == KEY_VOLUMEUP || code == KEY_VOLUMEDOWN || (code == KEY_MUTE && value == 1))) {
             setLastDevice(d.glyphs);

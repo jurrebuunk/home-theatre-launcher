@@ -72,7 +72,7 @@ void Config::setDefaults()
     };
     m_layout = {
         {"uiScale", 1.0}, {"safeMargin", 96}, {"safeMarginVertical", 56}, {"statusRowHeight", 88},
-        {"tile", QVariantMap{{"width", 480}, {"height", 360}, {"padding", 40}}},
+        {"tile", QVariantMap{{"width", 480}, {"height", 360}, {"padding", 40}, {"focusScale", 1.0}}},
         {"iconSize", 120}, {"statusIconSize", 32}, {"gap", 48}, {"columns", 4},
         {"alignment", "center"}, {"borderWidth", 1}, {"focusWidth", 4}, {"focusOffset", 6},
         {"buttonHeight", 80}, {"rowHeight", 80}, {"transitionMs", 150}, {"glyphStyle", "color"},
@@ -82,13 +82,13 @@ void Config::setDefaults()
                                    {"fadeMs", 1500}, {"shuffle", false}, {"video", QString()},
                                    {"fill", "cover"}, {"dim", 0.0}, {"blur", 0},
                                    {"panels", QVariantMap{{"dim", -1}, {"blur", -1}}}}},
-        {"moonlight", QVariantMap{{"cardHeight", 480},
+        {"moonlight", QVariantMap{{"cardHeight", 480}, {"focusScale", 1.08},
                                   {"boxArtBackground", QVariantMap{{"enable", false}, {"dim", 0.6}, {"blur", 40},
                                                                    {"fadeMs", 400}}}}},
     };
     m_input = {
         {"confirmButton", "south"}, {"homeHoldMs", 1000}, {"repeatDelayMs", 400},
-        {"repeatIntervalMs", 120}, {"stickDeadzone", 0.5},
+        {"repeatIntervalMs", 120}, {"stickDeadzone", 0.5}, {"controllerIdleMinutes", 0},
         {"gamepadHomeCodes", QStringList{"BTN_MODE", "KEY_HOMEPAGE"}},
         {"keyboardHomeCodes", QStringList{"KEY_HOMEPAGE", "KEY_HOME"}},
         {"keys", QVariantMap{{"select", QStringList{"Return", "Enter", "Space", "Select"}},
@@ -225,6 +225,8 @@ bool Config::loadJson(const QByteArray &json)
     for (const char *k : {"width", "height"})
         if (!positive(tile.value(k)))
             m_errors << QStringLiteral("appearance.tile.%1 must be > 0").arg(k);
+    if (tile.value("focusScale").toDouble() < 1 || tile.value("focusScale").toDouble() > 1.5)
+        m_errors << QStringLiteral("appearance.tile.focusScale must be in [1, 1.5]");
     for (const char *k : {"iconSize", "statusIconSize", "statusRowHeight", "buttonHeight", "rowHeight", "columns"})
         if (!positive(m_layout.value(k)))
             m_errors << QStringLiteral("appearance.%1 must be > 0").arg(k);
@@ -246,6 +248,8 @@ bool Config::loadJson(const QByteArray &json)
     const QVariantMap ml = m_layout.value("moonlight").toMap();
     if (ml.value("cardHeight").toDouble() < 120 || ml.value("cardHeight").toDouble() > 800)
         m_errors << QStringLiteral("appearance.moonlight.cardHeight must be in [120, 800]");
+    if (ml.value("focusScale").toDouble() < 1 || ml.value("focusScale").toDouble() > 1.5)
+        m_errors << QStringLiteral("appearance.moonlight.focusScale must be in [1, 1.5]");
     const QVariantMap art = ml.value("boxArtBackground").toMap();
     if (art.value("dim").toDouble() < 0 || art.value("dim").toDouble() > 1)
         m_errors << QStringLiteral("appearance.moonlight.boxArtBackground.dim must be in [0, 1]");
@@ -253,6 +257,8 @@ bool Config::loadJson(const QByteArray &json)
         m_errors << QStringLiteral("appearance.moonlight.boxArtBackground.blur must be in [0, %1]").arg(MaxBlur);
     if (art.value("fadeMs").toInt() < 0)
         m_errors << QStringLiteral("appearance.moonlight.boxArtBackground.fadeMs must be >= 0");
+    if (m_input.value("controllerIdleMinutes").toDouble() < 0)
+        m_errors << QStringLiteral("behavior.input.controllerIdleMinutes must be >= 0");
     if (m_overlay.value("dim").toDouble() < 0 || m_overlay.value("dim").toDouble() > 1)
         m_errors << QStringLiteral("behavior.overlay.dim must be in [0, 1]");
     if (m_network.value("scanDuration").toInt() <= 0)

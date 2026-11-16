@@ -4,6 +4,7 @@
 #include "lifecycle/SystemdBackend.h"
 
 #include <QTest>
+#include <linux/input-event-codes.h>
 
 class TestInput : public QObject
 {
@@ -40,6 +41,17 @@ private Q_SLOTS:
         QCOMPARE(InputRouter::axisDirection(-0.9, 0.2, 0.5), int(InputRouter::Left));
         QCOMPARE(InputRouter::axisDirection(0.3, 0.8, 0.5), int(InputRouter::Down));
         QCOMPARE(InputRouter::axisDirection(0.2, -0.6, 0.5), int(InputRouter::Up));
+    }
+    void controllerUse()
+    {
+        QVERIFY(InputRouter::isUse(EV_KEY, BTN_SOUTH, 1, 0, 0.5));
+        QVERIFY(!InputRouter::isUse(EV_KEY, BTN_SOUTH, 0, 0, 0.5)); // release
+        QVERIFY(InputRouter::isUse(EV_ABS, ABS_RX, 0, -0.8, 0.5));
+        QVERIFY(!InputRouter::isUse(EV_ABS, ABS_X, 0, 0.1, 0.5)); // stick noise
+        QVERIFY(InputRouter::isUse(EV_ABS, ABS_HAT0Y, -1, -1, 0.5));
+        QVERIFY(InputRouter::isUse(EV_ABS, ABS_RZ, 200, 0.6, 0.5));
+        QVERIFY(!InputRouter::isUse(EV_ABS, ABS_Z, 10, -0.9, 0.5)); // trigger at rest
+        QVERIFY(!InputRouter::isUse(EV_ABS, ABS_MT_POSITION_X, 300, 0.9, 0.5)); // touchpad, gyro, …
     }
     void overlayCombos()
     {

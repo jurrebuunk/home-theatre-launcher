@@ -109,6 +109,7 @@ private:
     UnitBackend::UnitState m_unit;
     bool m_unitKnown = false;
     bool m_unitStarted = false;
+    int m_unitQuery = 0; // only the newest state query counts
     QSet<quint32> m_baseline;
     bool m_sawWindow = false;
     bool m_sawName = false;

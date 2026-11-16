@@ -273,6 +273,16 @@ int BluetoothManager::batteryForAddress(const QString &address) const
     return -1;
 }
 
+void BluetoothManager::disconnectAddress(const QString &address)
+{
+    for (auto it = m_devices.cbegin(); it != m_devices.cend(); ++it)
+        if (it.value().value(QStringLiteral("Address")).toString().compare(address, Qt::CaseInsensitive) == 0
+            && it.value().value(QStringLiteral("Connected")).toBool()) {
+            disconnectDevice(it.key());
+            return;
+        }
+}
+
 void BluetoothManager::rebuild()
 {
     const QString adapter = currentAdapter();

@@ -258,6 +258,7 @@ int main(int argc, char *argv[])
             sound.step(direction);
     });
     QObject::connect(&input, &InputRouter::overlayRequested, &overlay, &OverlayState::toggle);
+    QObject::connect(&input, &InputRouter::controllerIdle, &bluetooth, &BluetoothManager::disconnectAddress);
     const int selectKey = config.selectKeys().value(0, Qt::Key_Return);
     const int backKey = config.backKeys().value(0, Qt::Key_Escape);
     QObject::connect(&input, &InputRouter::navigate, &windowController,

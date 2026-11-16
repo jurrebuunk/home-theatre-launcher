@@ -1,7 +1,7 @@
 import QtQuick
 
 // Button prompt for an action ("select", "back", "home", "delete", "menu", "alt", "volumeUp",
-// "volumeDown") on the last-used device: real Xbox / PlayStation glyphs, key caps for keyboard and
+// "volumeDown") on the last-used device: real Xbox / PlayStation / keyboard glyphs, key caps for the
 // remote, or the pictures of a custom device (behavior.input.devices), which fall back to its base.
 Item {
     id: root
@@ -35,18 +35,24 @@ Item {
         }
         return ""
     }
+    // Keyboard prompts: one key picture each, Ctrl+Enter as two.
+    readonly property var keyFiles: device !== "keyboard" ? []
+        : ({ select: ["enter"], back: ["escape"], home: ["home"], delete: ["backspace"],
+             menu: ["ctrl", "enter"], alt: ["f2"] })[action] || []
+    readonly property var glyphFiles: keyFiles.length > 0 ? keyFiles.map(k => "keyboard/keyboard_" + k)
+                                      : glyphFile !== "" ? [glyphFile] : []
     readonly property string keyText: {
-        if (device === "keyboard")
-            return ({ select: "Enter", back: "Esc", home: "Home", delete: "Bksp", menu: "Ctrl+Enter", alt: "F2" })[action] || ""
         if (device === "remote")
             return ({ select: "OK", back: "Back", home: "Home" })[action] || ""
         return ""
     }
     // Remotes have no Delete / Menu buttons: the on-screen keys do that.
-    readonly property bool available: customFile !== "" || glyphFile !== "" || keyText !== ""
+    readonly property bool available: customFile !== "" || glyphFiles.length > 0 || keyText !== ""
                                       || (device === "playstation" && gamepadAction === "home")
 
-    implicitWidth: customFile === "" && keyText !== "" ? keyCap.width : size
+    implicitWidth: customFile !== "" ? size
+                   : keyText !== "" ? keyCap.width
+                   : glyphFiles.length > 1 ? glyphRow.width : size
     implicitHeight: size
 
     Image {
@@ -59,14 +65,22 @@ Item {
                 ? "image://icon/file" + root.customFile + (root.custom.invert ? "?invert=1" : "") : ""
         smooth: true
     }
-    Image {
-        visible: root.customFile === "" && root.glyphFile !== ""
+    Row {
+        id: glyphRow
+        visible: root.customFile === ""
         anchors.centerIn: parent
-        width: root.size * 1.25
-        height: width
-        sourceSize: Qt.size(width, height)
-        source: root.glyphFile !== "" ? "image://icon/glyph/" + root.glyphFile : ""
-        smooth: true
+        spacing: -root.size * 0.15 // the pictures have transparent margins
+        Repeater {
+            model: root.glyphFiles
+            Image {
+                required property string modelData
+                width: root.size * 1.25
+                height: width
+                sourceSize: Qt.size(width, height)
+                source: "image://icon/glyph/" + modelData
+                smooth: true
+            }
+        }
     }
     // The pack has no PS button: a filled disc with a home icon in the same style.
     Rectangle {

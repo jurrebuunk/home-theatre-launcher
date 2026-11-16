@@ -75,6 +75,8 @@ public:
     // name, kind, battery (-1 unknown), connected
     Q_INVOKABLE QVariantMap deviceInfo(const QString &path) const;
     int batteryForAddress(const QString &address) const;
+    // Disconnects the connected device with this address (a controller then turns off).
+    void disconnectAddress(const QString &address);
 
     // Demo/screenshot support
     void demoShowPairing();

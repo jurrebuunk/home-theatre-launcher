@@ -14,6 +14,7 @@ let
 
   fraction = types.addCheck types.number (x: x >= 0 && x <= 1) // { description = "number in [0, 1]"; };
   blurPx = types.addCheck types.number (x: x >= 0 && x <= 64) // { description = "number in [0, 64]"; };
+  focusScale = types.addCheck types.number (x: x >= 1 && x <= 1.5) // { description = "number in [1, 1.5]"; };
   picture = types.either types.path (types.strMatching "^(/.*|builtin:[a-z]+)$");
 
   # A background: colour, picture, slideshow or video, dimmed and blurred.
@@ -346,6 +347,7 @@ in
         width = opt pos 480 "Tile width.";
         height = opt pos 360 "Tile height.";
         padding = opt nonneg 40 "Tile padding.";
+        focusScale = opt focusScale 1.0 "How much the selected home tile grows (1 = not at all, 1.1 = 10 % larger).";
       };
       iconSize = opt pos 120 "Tile icon size.";
       statusIconSize = opt pos 32 "Status row icon size.";
@@ -370,6 +372,7 @@ in
           Height of the box art cards in the Moonlight library (px at 1080p;
           the width follows the 204:320 card shape). They sit in one row.
         '';
+        focusScale = opt focusScale 1.08 "How much the selected box art card grows (1 = not at all).";
         boxArtBackground = {
           enable = opt types.bool false "Show the focused app's box art behind the Moonlight library.";
           dim = opt fraction 0.6 "Darkens the box art background.";
@@ -386,6 +389,12 @@ in
         repeatDelayMs = opt pos 400 "Controller navigation repeat delay.";
         repeatIntervalMs = opt pos 120 "Controller navigation repeat interval.";
         stickDeadzone = opt (types.addCheck types.number (x: x > 0 && x < 1)) 0.5 "Analog stick deadzone (0–1).";
+        controllerIdleMinutes = opt nonneg 0 ''
+          Turn off a Bluetooth controller after this many minutes without use (buttons,
+          or sticks / triggers past the deadzone), also while an app runs, to save its
+          battery. It is disconnected, which powers it off; press its Home/PS button to
+          reconnect. 0 keeps controllers on.
+        '';
         gamepadHomeCodes = opt (types.listOf types.str) [ "BTN_MODE" "KEY_HOMEPAGE" ] "evdev codes acting as Home on controllers.";
         keyboardHomeCodes = opt (types.listOf types.str) [ "KEY_HOMEPAGE" "KEY_HOME" ] "evdev codes acting as Home on keyboards/remotes.";
         keys = {

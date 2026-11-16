@@ -292,13 +292,15 @@ FocusScope {
                 readonly property real cardHeight: Theme.px(Theme.layout.moonlight.cardHeight)
                 readonly property real cardWidth: Math.round(cardHeight * 204 / 320)
                 readonly property real gap: Theme.px(40)
-                readonly property real pad: Theme.px(28) // room for the focused (scaled) card
+                readonly property real grow: Theme.layout.moonlight.focusScale
+                // Room for the focused (scaled) card.
+                readonly property real pad: cardWidth * (grow - 1) / 2 + Theme.px(12)
                 y: headerLine.y + headerLine.height + (footerLine.y - headerLine.y - headerLine.height - height) / 2
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.leftMargin: -pad
                 anchors.rightMargin: -pad
-                height: Math.min(cardHeight * 1.08 + 2 * Theme.px(12), footerLine.y - headerLine.y - headerLine.height)
+                height: Math.min(cardHeight * grow + 2 * Theme.px(12), footerLine.y - headerLine.y - headerLine.height)
                 visible: root.showGrid
                 clip: true
                 orientation: ListView.Horizontal
