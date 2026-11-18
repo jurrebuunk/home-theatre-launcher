@@ -112,6 +112,13 @@ QString InputRouter::glyphsForVendor(int vendor, const QString &fallback)
     return fallback == QLatin1String("playstation") ? fallback : QStringLiteral("xbox");
 }
 
+bool InputRouter::isWiiRemote(const QString &name)
+{
+    // hid-wiimote: "Nintendo Wii Remote" (buttons), plus "... Classic Controller",
+    // "... Pro Controller", "... Nunchuk", "... Accelerometer", "... IR" nodes.
+    return name.startsWith(QLatin1String("Nintendo Wii Remote"));
+}
+
 QString InputRouter::customDevice(const QVariantList &devices, int vendor, int product, const QString &name)
 {
     for (const QVariant &v : devices) {
@@ -268,12 +275,13 @@ void InputRouter::openDevice(const QString &path)
         m_devices.insert(path, d);
         return;
     }
-    d->glyphs = d->kind == Kind::Gamepad ? glyphsForVendor(libevdev_get_id_vendor(dev), m_defaultGlyphs)
+    const QString name = QString::fromUtf8(libevdev_get_name(dev));
+    d->glyphs = d->kind == Kind::Gamepad && isWiiRemote(name) ? QStringLiteral("wii")
+        : d->kind == Kind::Gamepad       ? glyphsForVendor(libevdev_get_id_vendor(dev), m_defaultGlyphs)
         : d->kind == Kind::Keyboard      ? QStringLiteral("keyboard")
                                          : QStringLiteral("remote");
     // Custom prompts only change the glyphs; navigation still follows the kind.
-    const QString custom = customDevice(m_customDevices, libevdev_get_id_vendor(dev), libevdev_get_id_product(dev),
-                                        QString::fromUtf8(libevdev_get_name(dev)));
+    const QString custom = customDevice(m_customDevices, libevdev_get_id_vendor(dev), libevdev_get_id_product(dev), name);
     if (!custom.isEmpty())
         d->glyphs = custom;
     applyGrab(*d);
@@ -433,6 +441,11 @@ void InputRouter::handleEvent(Device &d, int type, int code, int value)
         case BTN_DPAD_DOWN: dir = Down; break;
         case BTN_DPAD_LEFT: dir = Left; break;
         case BTN_DPAD_RIGHT: dir = Right; break;
+        // Wii Remote (held upright) and its Classic Controller send key codes.
+        case KEY_UP: dir = Up; break;
+        case KEY_DOWN: dir = Down; break;
+        case KEY_LEFT: dir = Left; break;
+        case KEY_RIGHT: dir = Right; break;
         default: break;
         }
         if (dir != None) {
@@ -450,9 +463,13 @@ void InputRouter::handleEvent(Device &d, int type, int code, int value)
                 Q_EMIT navigate(m_confirmSouth ? Back : Select);
             else if (code == BTN_WEST)
                 Q_EMIT navigate(Delete);
-            else if (code == BTN_START)
+            else if (code == BTN_START || code == KEY_NEXT) // KEY_NEXT: Wii +
                 Q_EMIT navigate(Menu);
             else if (code == BTN_NORTH)
+                Q_EMIT navigate(Alt);
+            else if (code == BTN_1) // Wii Remote 1 / 2
+                Q_EMIT navigate(Delete);
+            else if (code == BTN_2)
                 Q_EMIT navigate(Alt);
         }
         return;

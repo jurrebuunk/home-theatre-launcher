@@ -1,7 +1,7 @@
 import QtQuick
 
 // Button prompt for an action ("select", "back", "home", "delete", "menu", "alt", "volumeUp",
-// "volumeDown") on the last-used device: real Xbox / PlayStation / keyboard glyphs, key caps for the
+// "volumeDown") on the last-used device: real Xbox / PlayStation / Wii / keyboard glyphs, key caps for the
 // remote, or the pictures of a custom device (behavior.input.devices), which fall back to its base.
 Item {
     id: root
@@ -23,7 +23,7 @@ Item {
             if (gamepadAction === "delete") return color ? "xbox/xbox_button_color_x" : "xbox/xbox_button_x"
             if (gamepadAction === "menu") return "xbox/xbox_button_menu"
             if (gamepadAction === "alt") return color ? "xbox/xbox_button_color_y" : "xbox/xbox_button_y"
-            return "xbox/xbox_guide"
+            return gamepadAction === "home" ? "xbox/xbox_guide" : ""
         }
         if (device === "playstation") {
             if (gamepadAction === "select") return color ? "playstation/playstation_button_color_cross" : "playstation/playstation_button_cross"
@@ -32,6 +32,10 @@ Item {
             if (gamepadAction === "menu") return "playstation/playstation5_button_options"
             if (gamepadAction === "alt") return color ? "playstation/playstation_button_color_triangle" : "playstation/playstation_button_triangle"
             return "" // no PS-button glyph in the pack: in-style home icon
+        }
+        if (device === "wii") { // Wii Remote held upright: A / B, 1 / 2, +
+            const b = ({ select: "a", back: "b", delete: "1", menu: "plus", alt: "2", home: "home" })[gamepadAction]
+            return b ? "wii/wii_button_" + b : ""
         }
         return ""
     }

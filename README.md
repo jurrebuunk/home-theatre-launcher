@@ -28,7 +28,7 @@ packs rather than the design's line drawings:
 - **Interface and app icons:** Google [Material Symbols](https://fonts.google.com/icons),
   *Sharp* style at weight 300, with square corners and thin strokes to match
   the design.
-- **Button prompts:** the real Xbox / PS5 and keyboard glyphs from Kenney
+- **Button prompts:** the real Xbox / PS5 / Wii and keyboard glyphs from Kenney
   *Input Prompts*.
 
 ## More screenshots
@@ -377,7 +377,12 @@ compositor. See `nix/module.nix` for every option and its default.
 - **Input:** the launcher reads controllers through evdev (read-only; only
   grabbed while the in-app menu is open). Holding Home works inside apps, controllers can navigate the
   launcher, and the button prompts follow the last-used device (Xbox,
-  PlayStation, keyboard or remote).
+  PlayStation, Wii Remote, keyboard or remote).
+- **Wii Remotes:** pair them in the Bluetooth menu (press the red sync
+  button). Held upright: D-pad moves, A selects, B goes back, 1 deletes,
+  2 is the alternative action, + confirms text, Home as on other
+  controllers. libinput is told to ignore them, so their arrow keys don't
+  also reach the focused window.
 - **Bluetooth:** uses BlueZ over D-Bus with its own pairing agent. It
   supports adapter selection, power, scanning with a timeout, pair (confirm
   passkey, display code, or enter PIN), connect/disconnect, trust/untrust and

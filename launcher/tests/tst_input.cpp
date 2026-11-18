@@ -24,6 +24,12 @@ private Q_SLOTS:
         QCOMPARE(InputRouter::glyphsForVendor(0x1234, "playstation"), QStringLiteral("playstation"));
         QCOMPARE(InputRouter::glyphsForVendor(0x1234, "keyboard"), QStringLiteral("xbox"));
     }
+    void wiiRemote()
+    {
+        QVERIFY(InputRouter::isWiiRemote("Nintendo Wii Remote"));
+        QVERIFY(InputRouter::isWiiRemote("Nintendo Wii Remote Classic Controller"));
+        QVERIFY(!InputRouter::isWiiRemote("Nintendo Switch Pro Controller"));
+    }
     void customDevices()
     {
         const QVariantList devices{

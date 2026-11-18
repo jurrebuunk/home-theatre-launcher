@@ -38,6 +38,7 @@ public:
     // Pure helpers (unit tested)
     static Kind classify(bool hasGamepadButtons, bool hasLetters, bool hasRemoteKeys);
     static QString glyphsForVendor(int vendor, const QString &fallback);
+    static bool isWiiRemote(const QString &name);
     // The id of the first behavior.input.devices entry matching this device, or "".
     static QString customDevice(const QVariantList &devices, int vendor, int product, const QString &name);
     static int axisDirection(double normX, double normY, double deadzone);

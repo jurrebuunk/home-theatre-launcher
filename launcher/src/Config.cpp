@@ -338,7 +338,7 @@ bool Config::loadJson(const QByteArray &json)
 
 void Config::validateDevices()
 {
-    static const QStringList bases{"xbox", "playstation", "keyboard", "remote"};
+    static const QStringList bases{"xbox", "playstation", "wii", "keyboard", "remote"};
     static const QStringList actions{"select", "back", "home", "delete", "menu", "alt", "volumeUp", "volumeDown"};
     static const QRegularExpression usbId(QStringLiteral("^[0-9a-fA-F]{4}$"));
     QSet<QString> ids;
@@ -357,7 +357,7 @@ void Config::validateDevices()
         if (d.value("vendor").toString().isEmpty() && d.value("name").toString().isEmpty())
             m_errors << QStringLiteral("%1: match on vendor (and product) or name").arg(where);
         if (!bases.contains(d.value("base", QStringLiteral("remote")).toString()))
-            m_errors << QStringLiteral("%1.base must be xbox, playstation, keyboard or remote").arg(where);
+            m_errors << QStringLiteral("%1.base must be xbox, playstation, wii, keyboard or remote").arg(where);
         const QVariantMap glyphs = d.value("glyphs").toMap();
         for (auto it = glyphs.cbegin(); it != glyphs.cend(); ++it) {
             if (!actions.contains(it.key()))

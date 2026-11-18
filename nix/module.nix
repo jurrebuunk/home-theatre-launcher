@@ -58,7 +58,7 @@ let
       vendor = opt (types.nullOr usbId) null "USB vendor id in hex, e.g. `\"1915\"` (see `lsusb` or /proc/bus/input/devices).";
       product = opt (types.nullOr usbId) null "USB product id in hex. Needs `vendor`.";
       name = opt (types.nullOr types.str) null "Part of the input device name (case-insensitive), as an alternative or extra match.";
-      base = opt (types.enum [ "xbox" "playstation" "keyboard" "remote" ]) "remote" "Built-in prompts for actions without a picture; a base without the button hides the prompt.";
+      base = opt (types.enum [ "xbox" "playstation" "wii" "keyboard" "remote" ]) "remote" "Built-in prompts for actions without a picture; a base without the button hides the prompt.";
       invert = opt types.bool false "Invert the pictures' colours, for dark artwork on the dark theme.";
       glyphs = lib.genAttrs glyphActions (action: opt (types.nullOr (types.either types.path (types.strMatching "^/.*"))) null
         "Picture (PNG or SVG) for the `${action}` prompt.");
@@ -238,8 +238,9 @@ let
   '';
 
   autostart = pkgs.writeShellScript "home-theatre-autostart" ''
-    ${pkgs.systemd}/bin/systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE
-    ${pkgs.dbus}/bin/dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE
+    # DISPLAY: labwc's Xwayland, for X11-only apps (e.g. Dolphin).
+    ${pkgs.systemd}/bin/systemctl --user import-environment WAYLAND_DISPLAY DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE
+    ${pkgs.dbus}/bin/dbus-update-activation-environment --systemd WAYLAND_DISPLAY DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE
     ${b.compositor.extraAutostart}
     ${pkgs.systemd}/bin/systemctl --user restart home-theatre-launcher.service
   '';
@@ -401,7 +402,7 @@ in
           select = opt (types.listOf types.str) [ "Return" "Enter" "Space" "Select" ] "Qt key names for Select.";
           back = opt (types.listOf types.str) [ "Escape" "Back" "Backspace" ] "Qt key names for Back.";
         };
-        defaultGlyphs = opt (types.enum [ "xbox" "playstation" "keyboard" "remote" ]) "xbox" "Prompts before any input.";
+        defaultGlyphs = opt (types.enum [ "xbox" "playstation" "wii" "keyboard" "remote" ]) "xbox" "Prompts before any input.";
         devices = mkOption {
           type = types.attrsOf (types.submodule deviceModule);
           default = { };
@@ -607,6 +608,12 @@ in
         FastConnectable = mkDefault true;
       };
     };
+    # Wii Remotes (hid-wiimote) send arrow keys besides gamepad buttons, so
+    # libinput would also hand them to the focused window as a keyboard. The
+    # launcher reads them itself, like other controllers.
+    services.udev.extraRules = ''
+      SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="Nintendo Wii Remote*", ENV{LIBINPUT_IGNORE_DEVICE}="1"
+    '';
     security.rtkit.enable = mkDefault true;
     services.pipewire = {
       enable = mkDefault true;

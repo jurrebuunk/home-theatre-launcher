@@ -120,7 +120,7 @@ private Q_SLOTS:
         QTest::newRow("device id") << wrap({}, R"("behavior":{"input":{"devices":[{"id":"xbox","vendor":"1915"}]}})") << "built in";
         QTest::newRow("device match") << wrap({}, R"("behavior":{"input":{"devices":[{"id":"r"}]}})") << "match on vendor";
         QTest::newRow("device vendor") << wrap({}, R"("behavior":{"input":{"devices":[{"id":"r","vendor":"19"}]}})") << "4 hex digits";
-        QTest::newRow("device base") << wrap({}, R"("behavior":{"input":{"devices":[{"id":"r","name":"x","base":"wii"}]}})") << "devices.r.base";
+        QTest::newRow("device base") << wrap({}, R"("behavior":{"input":{"devices":[{"id":"r","name":"x","base":"gamecube"}]}})") << "devices.r.base";
         QTest::newRow("device action") << wrap({}, R"("behavior":{"input":{"devices":[{"id":"r","name":"x","glyphs":{"jump":"/x.png"}}]}})") << "unknown action";
         QTest::newRow("device glyph") << wrap({}, R"("behavior":{"input":{"devices":[{"id":"r","name":"x","glyphs":{"select":"/nonexistent.png"}}]}})") << "does not exist";
         QTest::newRow("missing icon") << wrap(R"({"id":"a","label":"A","command":["/x"],"icon":"/nonexistent.svg"})") << "does not exist";
