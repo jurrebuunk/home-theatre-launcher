@@ -78,14 +78,27 @@ let
         description = "Stable identifier (also names the systemd unit `htl-app-<id>.service`).";
       };
       label = mkOption { type = types.str; description = "Tile label."; };
-      type = opt (types.enum [ "app" "moonlight" ]) "app" ''
+      type = opt (types.enum [ "app" "moonlight" "library" ]) "app" ''
         `app` launches `command`. `moonlight`: `command` is moonlight-qt; the
         tile opens the Moonlight library (hosts, box art, pairing, Wake-on-LAN)
         and streams start as `command stream <host> <app> streamArguments`.
+        `library`: the tile opens a row of the game files in `library.directories`;
+        a game starts as `command library.arguments` with `{file}` replaced.
       '';
       streamArguments = opt (types.listOf types.str) [ ] ''
         Moonlight only: extra `moonlight stream` options, e.g. `[ "--resolution" "1920x1080" "--fps" "60" ]`.
       '';
+      library = {
+        directories = opt (types.listOf types.str) [ ] ''
+          Library only: folders searched (with subfolders) for games. Must be
+          readable by the launcher user. A picture next to a game with the same
+          name (`Game.rvz` + `Game.jpg`/`.png`) is its box art.
+        '';
+        extensions = opt (types.listOf types.str) [ ] "Library only: game file extensions, e.g. `[ \"iso\" \"rvz\" ]`.";
+        arguments = opt (types.listOf types.str) [ "{file}" ] ''
+          Library only: appended to `command` to start a game; `{file}` is the game's path.
+        '';
+      };
       description = opt (types.nullOr types.str) null "Supporting text (shown in error details).";
       icon = mkOption {
         type = types.nullOr (types.either types.path (types.strMatching "^(/.*|builtin:[a-z]+|material:[a-z0-9_]+)$"));
@@ -161,6 +174,7 @@ let
   dropNulls = lib.filterAttrsRecursive (_: v: v != null);
 
   appJson = app: dropNulls {
+    library = if app.type == "library" then app.library else null;
     inherit (app) id label type streamArguments description command environment workingDirectory systemUnits
       stopCommand ready exitWhen timeouts hooks;
     icon = if app.icon == null then null

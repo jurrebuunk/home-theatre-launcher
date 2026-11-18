@@ -11,8 +11,11 @@ struct AppSpec {
     QString label;
     QString description;
     QString icon;                // absolute path or empty
-    QString type = QStringLiteral("app"); // app | moonlight (tile opens the Moonlight library)
+    QString type = QStringLiteral("app"); // app | moonlight | library (tile opens a game library)
     QStringList streamArguments; // moonlight: extra `moonlight stream` options
+    QStringList libraryDirectories; // library: folders scanned for games
+    QStringList libraryExtensions;  // library: game file extensions
+    QStringList libraryArguments;   // library: appended to command, "{file}" = the game
     QStringList command;         // argv, argv[0] absolute
     QStringList environment;     // KEY=VALUE
     QString workingDirectory;

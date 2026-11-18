@@ -123,6 +123,10 @@ private Q_SLOTS:
         QTest::newRow("device base") << wrap({}, R"("behavior":{"input":{"devices":[{"id":"r","name":"x","base":"gamecube"}]}})") << "devices.r.base";
         QTest::newRow("device action") << wrap({}, R"("behavior":{"input":{"devices":[{"id":"r","name":"x","glyphs":{"jump":"/x.png"}}]}})") << "unknown action";
         QTest::newRow("device glyph") << wrap({}, R"("behavior":{"input":{"devices":[{"id":"r","name":"x","glyphs":{"select":"/nonexistent.png"}}]}})") << "does not exist";
+        QTest::newRow("app type") << wrap(R"({"id":"a","label":"A","command":["/x"],"type":"game"})") << "type must be";
+        QTest::newRow("library dirs") << wrap(R"({"id":"a","label":"A","command":["/x"],"type":"library","library":{"arguments":["{file}"]}})") << "directories and extensions";
+        QTest::newRow("library file") << wrap(R"({"id":"a","label":"A","command":["/x"],"type":"library","library":{"directories":["/g"],"extensions":["iso"],"arguments":["-e"]}})") << "{file}";
+        QTest::newRow("library relative") << wrap(R"({"id":"a","label":"A","command":["/x"],"type":"library","library":{"directories":["g"],"extensions":["iso"],"arguments":["{file}"]}})") << "absolute";
         QTest::newRow("missing icon") << wrap(R"({"id":"a","label":"A","command":["/x"],"icon":"/nonexistent.svg"})") << "does not exist";
     }
     void rejects()

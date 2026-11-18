@@ -231,6 +231,31 @@ Actions are `select`, `back`, `home`, `delete`, `menu`, `alt`, `volumeUp` and
 `volumeDown`. Only the prompts change: navigation still follows what the
 device is (controller, keyboard or remote).
 
+### Game libraries
+
+An app with `type = "library"` (an emulator, say) opens a row of the games in
+its folders instead of starting right away; a game starts as
+`command library.arguments`, with `{file}` replaced by its path. Titles come
+from the file names without region tags; a picture next to a game with the same
+name (`Mario Kart Wii (Europe).rvz` + `Mario Kart Wii (Europe).jpg`) is its box
+art. Cards and the box-art backdrop use the `appearance.moonlight` settings.
+
+```nix
+{
+  id = "dolphin";
+  label = "Dolphin";
+  type = "library";
+  command = [ "${pkgs.dolphin-emu}/bin/dolphin-emu" ];
+  library = {
+    directories = [ "/home/theatre/Games/Wii" ];
+    extensions = [ "iso" "rvz" "wbfs" "gcm" "gcz" "ciso" "wia" ];
+    arguments = [ "--batch" "--exec={file}" ];
+  };
+}
+```
+
+When the game exits, the row is back with that game selected.
+
 ### Moonlight
 
 An app with `type = "moonlight"` (the `lib.apps.moonlight` preset sets it)

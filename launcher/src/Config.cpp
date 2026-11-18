@@ -277,6 +277,10 @@ bool Config::loadJson(const QByteArray &json)
         a.icon = o.value("icon").toString();
         a.type = o.value("type").toString(QStringLiteral("app"));
         a.streamArguments = toStringList(o.value("streamArguments"));
+        const QJsonObject library = o.value("library").toObject();
+        a.libraryDirectories = toStringList(library.value("directories"));
+        a.libraryExtensions = toStringList(library.value("extensions"));
+        a.libraryArguments = toStringList(library.value("arguments"));
         a.command = toStringList(o.value("command"));
         const QJsonObject env = o.value("environment").toObject();
         for (auto it = env.begin(); it != env.end(); ++it)
@@ -318,8 +322,17 @@ bool Config::loadJson(const QByteArray &json)
             m_errors << where + QStringLiteral(": unknown builtin icon '%1'").arg(a.icon);
         if (a.label.isEmpty())
             m_errors << where + QStringLiteral(": empty label");
-        if (a.type != QLatin1String("app") && a.type != QLatin1String("moonlight"))
-            m_errors << where + QStringLiteral(": type must be app or moonlight");
+        if (!QStringList{"app", "moonlight", "library"}.contains(a.type))
+            m_errors << where + QStringLiteral(": type must be app, moonlight or library");
+        if (a.type == QLatin1String("library")) {
+            if (a.libraryDirectories.isEmpty() || a.libraryExtensions.isEmpty())
+                m_errors << where + QStringLiteral(": library needs directories and extensions");
+            for (const QString &d : a.libraryDirectories)
+                if (!d.startsWith(QLatin1Char('/')))
+                    m_errors << where + QStringLiteral(": library directory '%1' must be absolute").arg(d);
+            if (!a.libraryArguments.join(QLatin1Char(' ')).contains(QLatin1String("{file}")))
+                m_errors << where + QStringLiteral(": library.arguments must contain {file}");
+        }
         if (a.command.isEmpty() || a.command.first().isEmpty())
             m_errors << where + QStringLiteral(": empty command");
         else if (!a.command.first().startsWith(QLatin1Char('/')))

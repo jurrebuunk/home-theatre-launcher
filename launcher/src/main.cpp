@@ -9,6 +9,7 @@
 #include "lifecycle/Fakes.h"
 #include "lifecycle/LifecycleController.h"
 #include "lifecycle/SystemdBackend.h"
+#include "library/GameLibrary.h"
 #include "moonlight/MoonlightLibrary.h"
 #include "network/NetworkSettings.h"
 #include "status/Clock.h"
@@ -69,7 +70,7 @@ int main(int argc, char *argv[])
                                               "pairing, bt-no-adapter, network-wifi, network-password, "
                                               "network-ethernet, idle, idle-image, overlay, overlay-bluetooth, "
                                               "overlay-network, overlay-sound, overlay-close, sound, notifications, "
-                                              "volume, moonlight, moonlight-hosts, moonlight-pair, "
+                                              "volume, moonlight, moonlight-hosts, moonlight-pair, library, "
                                               "overlay-stream, overlay-stream-stop) to <file> and exit. "
                                               "Implies --demo."),
                                QStringLiteral("view:file"));
@@ -128,6 +129,7 @@ int main(int argc, char *argv[])
     Notifier notifier(&config);
     control.setSound(&sound, &notifier);
     MoonlightLibrary moonlight(&config, &life, demo);
+    GameLibrary games(&config, &life);
     control.setMoonlight(&moonlight);
     QObject::connect(&moonlight, &MoonlightLibrary::stopped, &notifier, [&notifier](const QString &app, const QString &host) {
         notifier.notify({{"icon", "stop"}, {"title", host.isEmpty() ? QStringLiteral("Stopped %1").arg(app)
@@ -179,6 +181,7 @@ int main(int argc, char *argv[])
     ctx->setContextProperty(QStringLiteral("Sound"), &sound);
     ctx->setContextProperty(QStringLiteral("Notes"), &notifier);
     ctx->setContextProperty(QStringLiteral("Moonlight"), &moonlight);
+    ctx->setContextProperty(QStringLiteral("Games"), &games);
     ctx->setContextProperty(QStringLiteral("Clock"), &clock);
     ctx->setContextProperty(QStringLiteral("Input"), &input);
     ctx->setContextProperty(QStringLiteral("Control"), &control);
@@ -203,7 +206,7 @@ int main(int argc, char *argv[])
         else if (view == QLatin1String("error-stop"))
             life.debugShow(QStringLiteral("error"), QStringLiteral("android-tv"), QStringLiteral("stop"));
         else if (view == QLatin1String("bluetooth") || view == QLatin1String("pairing") || view == QLatin1String("bt-no-adapter")
-                 || view == QLatin1String("sound"))
+                 || view == QLatin1String("sound") || view == QLatin1String("library"))
             window->setProperty("debugView", view);
         if (view == QLatin1String("pairing"))
             bluetooth.demoShowPairing();

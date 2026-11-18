@@ -9,8 +9,10 @@ Window {
     color: overlayMode ? "transparent" : Theme.background
     title: "Home Theatre"
 
-    // "" (home), "bluetooth", "network", "sound" or "moonlight"
+    // "" (home), "bluetooth", "network", "sound", "moonlight" or "library"
     property string panel: ""
+    // The Cfg.apps entry whose game library is open (panel "library")
+    property var libraryApp: null
     // Home tile to focus when a panel opened from a tile closes (-1: last launched)
     property int returnIndex: -1
     // Notifications / volume drawn inside this window (windowed, screenshots)
@@ -44,6 +46,13 @@ Window {
         openPanel("moonlight")
     }
     function openMoonlightLibrary() { openMoonlight(-1) } // control API
+    function openLibrary(index) {
+        if (index < 0 || index >= Cfg.apps.length)
+            return
+        libraryApp = Cfg.apps[index]
+        returnIndex = index
+        openPanel("library")
+    }
     function closePanel() {
         panel = ""
         Qt.callLater(restoreFocus)
@@ -70,6 +79,8 @@ Window {
             panel = "sound"
         else if (debugView.startsWith("moonlight"))
             panel = "moonlight"
+        else if (debugView === "library")
+            openLibrary(Cfg.apps.findIndex(a => a.type === "library"))
     }
 
     FocusScope {
@@ -102,6 +113,7 @@ Window {
             onOpenNetwork: window.openNetwork()
             onOpenSound: window.openSound()
             onOpenMoonlight: (index) => window.openMoonlight(index)
+            onOpenLibrary: (index) => window.openLibrary(index)
         }
 
         Loader {
@@ -111,7 +123,8 @@ Window {
             visible: !window.overlayMode
             sourceComponent: window.panel === "bluetooth" ? btComponent
                            : window.panel === "sound" ? soundComponent
-                           : window.panel === "moonlight" ? moonlightComponent : netComponent
+                           : window.panel === "moonlight" ? moonlightComponent
+                           : window.panel === "library" ? libraryComponent : netComponent
             onLoaded: Qt.callLater(() => { item.forceActiveFocus(); item.focusDefault() })
         }
         Component {
@@ -130,6 +143,14 @@ Window {
         Component {
             id: moonlightComponent
             MoonlightView {
+                debugView: window.debugView
+                onCloseRequested: window.closePanel()
+            }
+        }
+        Component {
+            id: libraryComponent
+            LibraryView {
+                app: window.libraryApp
                 debugView: window.debugView
                 onCloseRequested: window.closePanel()
             }
