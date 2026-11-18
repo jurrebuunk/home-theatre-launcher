@@ -249,7 +249,7 @@ art. Cards and the box-art backdrop use the `appearance.moonlight` settings.
   library = {
     directories = [ "/home/theatre/Games/Wii" ];
     extensions = [ "iso" "rvz" "wbfs" "gcm" "gcz" "ciso" "wia" ];
-    arguments = [ "--batch" "--exec={file}" ];
+    arguments = [ "--batch" "--exec" "{file}" ];
   };
 }
 ```
